@@ -1,18 +1,23 @@
 .env
 *.env
-.cursor/
-.vscode/
-build/
-dist/
-.github/**/agent-tools/
 
 .venv/
 .venv_test/
+venv/
+env/
 __pycache__/
 *.py[cod]
 *.pyd
 *.so
 *.log
+
+.cursor/
+.vscode/
+.idea/
+
+build/
+dist/
+*.exe
 
 /db/
 /exports/
