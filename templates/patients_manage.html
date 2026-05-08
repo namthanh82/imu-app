@@ -1,0 +1,399 @@
+<!doctype html><html lang="vi"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Thông tin bệnh nhân</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
+<link href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
+<style>
+:root{ --blue:#1669c9; --sbw:260px; }
+body { background: #1b4a62; }
+
+/* Bố cục & sidebar giống Trang chủ / Hiệu chuẩn */
+.layout{ display:flex; gap:16px; position:relative; }
+.sidebar{
+  background:var(--blue); color:#fff;
+  border-top-right-radius:16px; border-bottom-right-radius:16px;
+  padding:16px; width:var(--sbw); min-height:100vh;
+  box-sizing:border-box;
+}
+.sidebar-col{
+  flex:0 0 var(--sbw);
+  max-width:var(--sbw);
+  transition:flex-basis .28s ease, max-width .28s ease, transform .28s ease;
+  will-change:flex-basis,max-width,transform;
+}
+.main-col{ flex:1 1 auto; min-width:0; }
+
+/* Mặc định THU GỌN (ẩn sidebar) */
+.sb-collapsed .sidebar-col{ flex-basis:0; max-width:0; transform:translateX(-8px); }
+.sb-collapsed .sidebar{ padding:0; width:0; border-radius:0; }
+.sb-collapsed .sidebar *{ display:none; }
+
+/* Nút ☰ trên navbar */
+#btnToggleSB{
+  border:2px solid #d8e6ff; border-radius:10px; background:#fff;
+  padding:6px 10px; font-weight:700;
+}
+#btnToggleSB:hover{ background:#f4f8ff; }
+
+/* Card / form đổi theo style nút bấm ở sidebar (hình 1) */
+.card{ 
+  background: transparent; /* bỏ khung trắng */
+  border: none;
+  box-shadow: none; 
+}
+.form-label{ 
+  font-size: 13px; 
+  color: #92b9c9; 
+  text-transform: uppercase; 
+  font-weight: 700; 
+  margin: 10px 0 6px 4px; 
+  letter-spacing: 1px; 
+}
+.form-control, .form-select, .input-sm {
+  background: #286c87;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 12px 16px;
+  font-weight: 600;
+  font-size: 15px;
+  transition: all 0.2s;
+}
+.form-control:focus, .form-select:focus {
+  background: #2f738e;
+  color: #fff;
+  box-shadow: 0 0 0 2px #409bbd;
+}
+.form-control::placeholder {
+  color: #92b9c9;
+  opacity: 0.7;
+}
+
+/* Nút bấm (Lưu, Xóa, Clear) theo style sidebar shape */
+.btn-outline-thick{ 
+  background-color: #314a5d;
+  border: 1px solid #48667b;
+  border-radius: 8px; 
+  color: #fff;
+  font-weight: bold;
+  font-size: 15px;
+  padding: 10px 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+  opacity: 0.9;
+  transition: all 0.2s;
+}
+.btn-outline-thick:hover {
+  opacity: 1;
+  background-color: #3a566b;
+  color: #fff;
+}
+#btnSave, #btnDelete {
+  background-color: #314a5d;
+}
+
+/* Bảng hiển thị (Table) dark theme */
+.table {
+  color: #fff;
+  border-color: #286c87;
+}
+.table thead th{ 
+  background: #194a5e; 
+  color: #92b9c9;
+  border-bottom: 2px solid #286c87;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+.table tbody td {
+  background: transparent;
+  color: #c9e4f0;
+  border-bottom: 1px solid #286c87;
+}
+.table-hover tbody tr:hover td {
+  background: #286c87;
+  color: #fff;
+}
+
+/* Menu trong sidebar */
+.menu-btn{
+  width:100%; display:block; background:#1973d4; border:none; color:#fff;
+  padding:10px 12px; margin:8px 0; border-radius:12px; font-weight:600;
+  text-align:left; text-decoration:none;
+}
+.menu-btn:hover{ background:#1f80ea; color:#fff }
+.menu-btn.active{ background:#0f5bb0; }
+</style>
+
+<style>
+/* Top Navbar Style (Image 3 look) */
+.header-nav-link { color: #aab6c2; text-decoration: none; font-weight: 500; font-size: 16px; padding: 12px 16px; margin: 0 4px; display: flex; align-items: center; gap: 8px; border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; }
+.header-nav-link:hover { color: #fff; background: rgba(255,255,255,0.05); border-radius: 4px 4px 0 0; }
+.header-nav-link.active { color: #4dc3ff; border-bottom: 3px solid #4dc3ff; }
+.header-nav-link i { font-size: 20px; }
+</style>
+</head>
+<body class="sb-collapsed">
+
+<nav class="navbar px-4 py-0" style="background: #0b161f; border-bottom: 1px solid #162b3b;">
+  <div class="container-fluid d-flex align-items-center p-0">
+    <div class="d-flex align-items-center h-100" id="top-nav-menu">
+      <a class="header-nav-link " href="/"><i class="bi bi-house"></i> <span data-i18n="menu.home">Trang chủ</span></a>
+      <a class="header-nav-link " href="/calibration"><i class="bi bi-sliders"></i> <span data-i18n="menu.calib">Hiệu chuẩn</span></a>
+      <a class="header-nav-link active" href="/patients/manage"><i class="bi bi-person-lines-fill"></i> <span data-i18n="menu.patinfo">Thông tin bệnh nhân</span></a>
+      <a class="header-nav-link " href="/records"><i class="bi bi-journal-text"></i> <span data-i18n="menu.record">Bệnh án</span></a>
+      <a class="header-nav-link " href="/charts"><i class="bi bi-bar-chart"></i> <span data-i18n="menu.charts">Biểu đồ</span></a>
+              <button class="header-nav-link" id="btn-open-chatbot" onclick="openChatbotModal()"
+          style="background:none; border:none; cursor:pointer; color:#aab6c2; display:flex; align-items:center; gap:8px; font-weight:500; font-size:16px; padding:12px 16px; border-bottom:3px solid transparent; transition:all 0.2s;"
+          onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#aab6c2'">
+          <i class="bi bi-robot" style="font-size:20px;"></i> <span>Hỗ trợ AI</span>
+        </button>
+<a class="header-nav-link " href="/settings"><i class="bi bi-gear"></i> <span data-i18n="menu.settings">Cài đặt</span></a>
+    </div>
+
+    <div id="selectedPatientDisplay" style="display:none; background:#1669c9; border-radius:8px; font-size: 14px;" class="px-3 py-1 fw-bold text-white shadow-sm ms-4 my-2">
+      Bệnh nhân đang chọn: <span id="spName"></span>
+    </div>
+    
+    <div class="ms-auto d-flex align-items-center py-2">
+      <img src="{{ url_for('static', filename='logokomlab.png') }}" alt="Logo" height="40">
+    </div>
+  </div>
+</nav>
+
+<div class="container-fluid my-3">
+  <div class="layout">
+    <!-- Sidebar -->
+    <!-- Removed Sidebar -->
+
+    <!-- Main -->
+    <main class="main-col">
+      <div class="row g-3">
+        <!-- Form trái -->
+        <div class="col-lg-5">
+          <div class="card p-3">
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label" data-i18n="patients.name">Họ và tên</label>
+                <input id="name" class="form-control input-sm">
+              </div>
+              <div class="col-12">
+                <label class="form-label" data-i18n="patients.id">CCCD</label>
+                <input id="national_id" class="form-control input-sm">
+              </div>
+              <div class="col-6">
+                <label class="form-label" data-i18n="patients.dob">Ngày sinh</label>
+                <input id="dob" class="form-control input-sm" placeholder="vd 30/05/2001 hoặc 2001-05-30">
+              </div>
+              <div class="col-6">
+                <label class="form-label" data-i18n="patients.gender">Giới tính</label>
+                <select id="gender" class="form-select input-sm">
+                  <option value="">--</option>
+                  <option>Male</option>
+                  <option>Female</option>
+                </select>
+              </div>
+              <div class="col-6">
+                <label class="form-label" data-i18n="patients.height">Chiều cao (cm)</label>
+                <input id="height" class="form-control input-sm">
+              </div>
+              <input type="hidden" id="pat_code">
+              <div class="col-6">
+                <label class="form-label" data-i18n="patients.weight">Cân nặng (kg)</label>
+                <input id="weight" class="form-control input-sm">
+              </div>
+
+              <div class="col-12">
+                <label class="form-label" data-i18n="patients.code">Mã bệnh nhân</label>
+                <input id="patient_code" class="form-control input-sm" placeholder="(để trống để tạo mới)">
+              </div>
+
+              <div class="col-12 d-flex justify-content-center gap-4 mt-4 mb-2">
+                <button id="btnSave" class="btn btn-outline-thick text-white fw-bold px-5 py-2 shadow-sm fs-5" style="min-width: 140px;" data-i18n="patients.save">Lưu</button>
+                <button id="btnDelete" class="btn btn-outline-thick text-white fw-bold px-5 py-2 shadow-sm fs-5" style="min-width: 140px;" data-i18n="patients.delete">Xóa</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bảng phải -->
+        <div class="col-lg-7">
+          <div class="card p-3">
+            <input id="q" class="form-control mb-3" placeholder="Tìm kiếm..." data-i18n-placeholder="patients.search">
+            <div class="table-responsive">
+              <table class="table table-hover align-middle" id="tbl">
+                <thead>
+                  <tr>
+                    <th style="width:60px">#</th>
+                    <th data-i18n="patients.th_code">Mã bệnh nhân</th>
+                    <th data-i18n="patients.th_name">Họ và tên</th>
+                    <th data-i18n="patients.th_id">CCCD</th>
+                    <th data-i18n="patients.th_dob">Ngày sinh</th>
+                    <th data-i18n="patients.th_gender">Giới tính</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+// I18N cho trang quản lý bệnh nhân
+const I18N_PAT = {
+  vi:{
+    "menu.title":"MENU",
+    "menu.home":"Trang chủ",
+    "menu.calib":"Hiệu chuẩn",
+    "menu.patinfo":"Thông tin bệnh nhân",
+    "menu.record":"Bệnh án",
+    "menu.charts":"Biểu đồ",
+    "menu.settings":"Cài đặt",
+
+    "patients.manage_title":"Thông tin bệnh nhân",
+    "patients.name":"Họ và tên",
+    "patients.id":"CCCD",
+    "patients.dob":"Ngày sinh",
+    "patients.gender":"Giới tính",
+    "patients.height":"Chiều cao (cm)",
+    "patients.weight":"Cân nặng (kg)",
+    "patients.code":"Mã bệnh nhân",
+    "patients.save":"Lưu",
+    "patients.delete":"Xóa",
+    "patients.clear_all":"Xóa toàn bộ danh sách",
+    "patients.search":"Tìm kiếm...",
+    "patients.th_code":"Mã bệnh nhân",
+    "patients.th_name":"Họ và tên",
+    "patients.th_id":"CCCD",
+    "patients.th_dob":"Ngày sinh",
+    "patients.th_gender":"Giới tính"
+  },
+  en:{
+    "menu.title":"MENU",
+    "menu.home":"Home",
+    "menu.calib":"Calibration",
+    "menu.patinfo":"Patient info",
+    "menu.record":"Records",
+    "menu.charts":"Charts",
+    "menu.settings":"Settings",
+
+    "patients.manage_title":"Patient information",
+    "patients.name":"Full name",
+    "patients.id":"National ID",
+    "patients.dob":"Date of birth",
+    "patients.gender":"Gender",
+    "patients.height":"Height (cm)",
+    "patients.weight":"Weight (kg)",
+    "patients.code":"Patient code",
+    "patients.save":"Save",
+    "patients.delete":"Delete",
+    "patients.clear_all":"Delete all",
+    "patients.search":"Search...",
+    "patients.th_code":"Patient code",
+    "patients.th_name":"Full name",
+    "patients.th_id":"ID",
+    "patients.th_dob":"Date of birth",
+    "patients.th_gender":"Gender"
+  }
+};
+function applyLangPatients(lang){
+  const dict = I18N_PAT[lang] || I18N_PAT.vi;
+  document.querySelectorAll("[data-i18n]").forEach(el=>{
+    const k = el.getAttribute("data-i18n");
+    if (dict[k]) el.textContent = dict[k];
+  });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach(el=>{
+    const k = el.getAttribute("data-i18n-placeholder");
+    if (dict[k]) el.placeholder = dict[k];
+  });
+}
+
+/* ===== Logic quản lý bệnh nhân ===== */
+let DATA = {rows:[], raw:{}};
+const $ = (id)=>document.getElementById(id);
+
+function loadAll(){
+  fetch('/api/patients').then(r=>r.json()).then(d=>{
+    DATA = d; renderTable(d.rows);
+  });
+}
+function renderTable(rows){
+  const tb = document.querySelector('#tbl tbody');
+  tb.innerHTML = '';
+  rows.forEach((r,i)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i+1}</td>
+      <td>${r.code||''}</td>
+      <td>${r.full_name||''}</td>
+      <td>${r.national_id||''}</td>
+      <td>${r.dob||''}</td>
+      <td>${r.sex||''}</td>`;
+    tr.onclick = ()=>fillFormFromRow(r.code);
+    tb.appendChild(tr);
+  });
+}
+function fillFormFromRow(code){
+  const rec = DATA.raw[code] || {};
+  $('patient_code').value = rec.PatientCode || '';
+  $('name').value        = rec.name || '';
+  $('national_id').value = rec.ID || '';
+  $('dob').value         = rec.DateOfBirth || '';
+  $('gender').value      = rec.Gender || '';
+  $('height').value      = rec.Height || '';
+  $('weight').value      = rec.Weight || '';
+}
+$('q').addEventListener('input', ()=>{
+  const kw = $('q').value.toLowerCase();
+  const rows = DATA.rows.filter(r =>
+    (r.code||'').toLowerCase().includes(kw) ||
+    (r.full_name||'').toLowerCase().includes(kw) ||
+    (r.national_id||'').toLowerCase().includes(kw)
+  );
+  renderTable(rows);
+});
+$('btnSave').onclick = ()=>{
+  const payload = {
+    patient_code: $('patient_code').value.trim(),
+    name:         $('name').value.trim(),
+    national_id:  $('national_id').value.trim(),
+    dob:          $('dob').value.trim(),
+    gender:       $('gender').value,
+    height:       $('height').value.trim(),
+    weight:       $('weight').value.trim(),
+  };
+  fetch('/api/patients', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  }).then(r=>r.json()).then(res=>{
+    if(res.ok){ alert('Đã lưu!'); loadAll(); $('patient_code').value = res.patient_code; }
+    else{ alert(res.msg||'Lỗi'); }
+  });
+};
+$('btnDelete').onclick = ()=>{
+  const code = $('patient_code').value.trim();
+  if(!code){ alert('Chọn/nhập mã bệnh nhân'); return; }
+  if(!confirm('Xóa bệnh nhân này?')) return;
+  fetch('/api/patients/'+encodeURIComponent(code), {method:'DELETE'})
+    .then(r=>r.json()).then(res=>{
+      if(res.ok){ alert('Đã xóa'); loadAll(); }
+      else alert(res.msg||'Lỗi');
+    });
+};
+
+loadAll();
+
+// áp dụng ngôn ngữ sau khi DOM sẵn sàng
+document.addEventListener("DOMContentLoaded", ()=>{
+  const lang = localStorage.getItem("appLang") || "vi";
+  applyLangPatients(lang);
+});
+</script>
+  {% include 'desktop_keepalive.html' %}
+  {% include 'chatbot.html' %}
+</body></html>

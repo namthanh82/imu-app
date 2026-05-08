@@ -1,0 +1,147 @@
+<!doctype html><html lang="vi"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Thêm bệnh nhân mới</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
+<link href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
+<style>
+body { background: #1b4a62;
+}
+
+.card { 
+  background: transparent; /* bỏ khung trắng */
+  border: none;
+  box-shadow: none; 
+}
+.form-label { 
+  font-size: 13px; 
+  color: #92b9c9; 
+  text-transform: uppercase; 
+  font-weight: 700; 
+  margin: 10px 0 6px 4px; 
+  letter-spacing: 1px; 
+}
+.form-control, .form-select, .input-sm {
+  background: #286c87;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 12px 16px;
+  font-weight: 600;
+  font-size: 15px;
+  transition: all 0.2s;
+}
+.form-control:focus, .form-select:focus {
+  background: #2f738e;
+  color: #fff;
+  box-shadow: 0 0 0 2px #409bbd;
+}
+.form-control::placeholder {
+  color: #92b9c9;
+  opacity: 0.7;
+}
+
+/* Nút bấm (Lưu, Xóa, Clear) theo style sidebar shape */
+.btn-outline-thick{ 
+  background-color: #314a5d;
+  border: 1px solid #48667b;
+  border-radius: 8px; 
+  color: #fff;
+  font-weight: bold;
+  font-size: 15px;
+  padding: 10px 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+  opacity: 0.9;
+  transition: all 0.2s;
+}
+.btn-outline-thick:hover {
+  opacity: 1;
+  background-color: #3a566b;
+  color: #fff;
+}
+</style>
+
+<style>
+/* Top Navbar Style (Image 3 look) */
+.header-nav-link { color: #aab6c2; text-decoration: none; font-weight: 500; font-size: 16px; padding: 12px 16px; margin: 0 4px; display: flex; align-items: center; gap: 8px; border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; }
+.header-nav-link:hover { color: #fff; background: rgba(255,255,255,0.05); border-radius: 4px 4px 0 0; }
+.header-nav-link.active { color: #4dc3ff; border-bottom: 3px solid #4dc3ff; }
+.header-nav-link i { font-size: 20px; }
+</style>
+</head>
+<body>
+
+<nav class="navbar px-4 py-0" style="background: #0b161f; border-bottom: 1px solid #162b3b;">
+  <div class="container-fluid d-flex align-items-center p-0">
+    <div class="d-flex align-items-center h-100" id="top-nav-menu">
+      <a class="header-nav-link " href="/"><i class="bi bi-house"></i> <span data-i18n="menu.home">Trang chủ</span></a>
+      <a class="header-nav-link " href="/calibration"><i class="bi bi-sliders"></i> <span data-i18n="menu.calib">Hiệu chuẩn</span></a>
+      <a class="header-nav-link active" href="/patients/manage"><i class="bi bi-person-lines-fill"></i> <span data-i18n="menu.patinfo">Thông tin bệnh nhân</span></a>
+      <a class="header-nav-link " href="/records"><i class="bi bi-journal-text"></i> <span data-i18n="menu.record">Bệnh án</span></a>
+      <a class="header-nav-link " href="/charts"><i class="bi bi-bar-chart"></i> <span data-i18n="menu.charts">Biểu đồ</span></a>
+              <button class="header-nav-link" id="btn-open-chatbot" onclick="openChatbotModal()"
+          style="background:none; border:none; cursor:pointer; color:#aab6c2; display:flex; align-items:center; gap:8px; font-weight:500; font-size:16px; padding:12px 16px; border-bottom:3px solid transparent; transition:all 0.2s;"
+          onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#aab6c2'">
+          <i class="bi bi-robot" style="font-size:20px;"></i> <span>Hỗ trợ AI</span>
+        </button>
+<a class="header-nav-link " href="/settings"><i class="bi bi-gear"></i> <span data-i18n="menu.settings">Cài đặt</span></a>
+    </div>
+
+    <div id="selectedPatientDisplay" style="display:none; background:#1669c9; border-radius:8px; font-size: 14px;" class="px-3 py-1 fw-bold text-white shadow-sm ms-4 my-2">
+      Bệnh nhân đang chọn: <span id="spName"></span>
+    </div>
+    
+    <div class="ms-auto d-flex align-items-center py-2">
+      <img src="{{ url_for('static', filename='logokomlab.png') }}" alt="Logo" height="40">
+    </div>
+  </div>
+</nav>
+
+<div class="container my-3" style="max-width:720px">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for c,m in messages %}
+      <div class="alert alert-{{c}}">{{m}}</div>
+    {% endfor %}
+  {% endwith %}
+  <div class="card p-4">
+    <form method="post">
+      <div class="mb-3">
+        <label class="form-label">Họ và tên</label>
+        <input name="full_name" class="form-control" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">CCCD</label>
+        <input name="national_id" class="form-control">
+      </div>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Ngày sinh</label>
+          <input type="text" name="dob" class="form-control" placeholder="vd 30/05/2001 hoặc 2001-05-30">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Giới tính</label>
+          <select name="sex" class="form-select">
+            <option value="">--</option>
+            <option>Male</option>
+            <option>Female</option>
+          </select>
+        </div>
+      </div>
+      <div class="row g-3 mt-0">
+        <div class="col-md-6">
+          <label class="form-label">Cân nặng (kg)</label>
+          <input name="weight" class="form-control">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Chiều cao (cm)</label>
+          <input name="height" class="form-control">
+        </div>
+      </div>
+      <div class="mt-4 d-grid">
+        <button class="btn btn-outline-thick text-white fw-bold px-4 py-2 shadow-sm">Lưu thông tin</button>
+      </div>
+    </form>
+  </div>
+</div>
+  {% include 'desktop_keepalive.html' %}
+  {% include 'chatbot.html' %}
+</body></html>

@@ -1,0 +1,54 @@
+<script>
+  (function () {
+    const ensureScaleStyles = () => {
+      if (document.getElementById('app-scale-style')) return;
+      const style = document.createElement('style');
+      style.id = 'app-scale-style';
+      style.textContent = `
+        html {
+          background: #1b4a62;
+          overflow-x: hidden;
+        }
+        body {
+          transform-origin: top left;
+        }
+        body .container-fluid {
+          max-width: none;
+        }
+        body.app-scaled .main-col {
+          height: calc((100vh / var(--app-scale-factor, 1)) - 85px) !important;
+          min-height: calc((100vh / var(--app-scale-factor, 1)) - 85px) !important;
+        }
+      `;
+      document.head.appendChild(style);
+    };
+
+    const applyAppScale = () => {
+      ensureScaleStyles();
+      const raw = localStorage.getItem('app_scale_percent') || '100';
+      const scale = Math.min(150, Math.max(75, Number(raw) || 100));
+      const factor = scale / 100;
+      document.documentElement.style.zoom = '';
+      document.documentElement.dataset.appScale = String(scale);
+      document.documentElement.style.setProperty('--app-scale-factor', String(factor));
+      document.body.classList.toggle('app-scaled', scale !== 100);
+
+      document.body.style.transform = `scale(${factor})`;
+      document.body.style.width = `${100 / factor}%`;
+      document.body.style.minHeight = `${100 / factor}vh`;
+    };
+
+    applyAppScale();
+    window.addEventListener('storage', (event) => {
+      if (event.key === 'app_scale_percent') applyAppScale();
+    });
+    window.addEventListener('app-scale-changed', applyAppScale);
+
+    const keepAlive = () => {
+      fetch('/flaskwebgui-keep-server-alive').catch(() => {});
+    };
+
+    keepAlive();
+    window.setInterval(keepAlive, 5000);
+  })();
+</script>

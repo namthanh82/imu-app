@@ -1,0 +1,414 @@
+<!doctype html><html lang="vi"><head>
+<link rel="icon" type="image/png" href="{{ url_for('static', filename='logokomlab.png') }}">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Đăng nhập IMU</title>
+
+<link href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
+
+<style>
+:root{
+  --card-bg: rgba(5, 10, 25, 0.95);
+  --neon-blue: #29d4ff;
+  --neon-pink: #ff4fd8;
+  --neon-purple: #7b5dff;
+}
+
+/* ===== NỀN VŨ TRỤ + LỚP PHỦ ===== */
+body { background: #1b4a62;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+  overflow:hidden;
+}
+
+/* Lớp phủ làm tối + blur nhẹ để neon nổi hơn */
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  background: radial-gradient(circle at top, rgba(0,0,0,0.25), rgba(0,0,0,0.75));
+  backdrop-filter: blur(3px);
+  z-index:-2;
+}
+
+/* Một chút hạt sao bay mờ mờ */
+body::after{
+  content:"";
+  position:fixed;
+  inset:-50px;
+  background-image:
+    radial-gradient(circle at 10% 20%, rgba(255,255,255,0.12) 0, transparent 35%),
+    radial-gradient(circle at 80% 10%, rgba(144,224,255,0.18) 0, transparent 40%),
+    radial-gradient(circle at 60% 80%, rgba(255,192,203,0.16) 0, transparent 45%);
+  opacity:0.45;
+  mix-blend-mode:screen;
+  animation: nebulaMove 40s linear infinite;
+  z-index:-1;
+}
+
+@keyframes nebulaMove{
+  0%{ transform:translate3d(0,0,0) scale(1); }
+  50%{ transform:translate3d(-30px,10px,0) scale(1.02); }
+  100%{ transform:translate3d(0,0,0) scale(1); }
+}
+
+/* ===== KHỐI LOGIN NEON ===== */
+.login-wrap{
+  position:relative;
+  padding:3px;
+  border-radius:24px;
+  background:
+    linear-gradient(135deg, rgba(41,212,255,0.9), rgba(255,79,216,0.9));
+  box-shadow:
+    0 0 35px rgba(41,212,255,0.55),
+    0 0 65px rgba(255,79,216,0.5);
+  max-width:480px;
+  width:100%;
+}
+
+/* KHUNG ĐĂNG NHẬP BÊN TRONG */
+.login-card{
+  position:relative;
+  z-index:0;
+  border-radius:22px;
+  background: radial-gradient(circle at top, #101630 0%, #050a18 55%, #02040b 100%);
+  padding:26px 30px 24px;
+  color:#e6f3ff;
+  box-shadow: 0 22px 60px rgba(0,0,0,0.75) inset;
+  overflow:hidden;
+}
+
+/* Ô vuông xoay NEON bên trong khung */
+.login-card::before,
+.login-card::after{
+  content:"";
+  position:absolute;
+  width:230px;
+  height:230px;
+  border-radius:18px;
+  border:1.6px solid rgba(41,212,255,0.35);
+  box-shadow:0 0 24px rgba(41,212,255,0.25);
+  transform:rotate(25deg);
+  animation: spinSquare 22s linear infinite;
+  opacity:0.45;
+  pointer-events:none;
+  z-index:0;
+}
+.login-card::before{
+  top:-90px;
+  left:-70px;
+}
+.login-card::after{
+  bottom:-90px;
+  right:-80px;
+  border-color:rgba(255,79,216,0.45);
+  box-shadow:0 0 24px rgba(255,79,216,0.28);
+  animation-duration:30s;
+}
+
+@keyframes spinSquare{
+  0%{ transform:rotate(0deg); }
+  100%{ transform:rotate(360deg); }
+}
+
+/* LỚP CHỨA NỘI DUNG ĐỂ NỔI TRÊN HÌNH XOAY */
+.card-inner{
+  position:relative;
+  z-index:1;
+}
+
+/* Logo & tiêu đề */
+.login-logo-row{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:26px;
+  margin-bottom:10px;
+}
+.login-logo{
+  width:70px; height:auto;
+  filter: drop-shadow(0 0 12px rgba(41,212,255,0.6));
+}
+.login-title{
+  font-size:1.3rem;
+  font-weight:800;
+  text-align:center;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  margin-bottom:4px;
+  color:#f7fbff;
+  text-shadow:0 0 12px rgba(255,255,255,0.7), 0 0 22px rgba(41,212,255,0.8);
+}
+.login-subtitle{
+  font-size:.85rem;
+  text-align:center;
+  color:#99c9ff;
+  margin-bottom:18px;
+}
+
+/* Divider neon mảnh */
+.divider{
+  height:1px;
+  border-radius:999px;
+  background:linear-gradient(90deg, transparent, rgba(87,140,255,0.9), transparent);
+  box-shadow:0 0 10px rgba(87,140,255,0.9);
+  margin-bottom:18px;
+}
+
+/* Form */
+.form-label{
+  font-size:.84rem;
+  color:#9dbaf8;
+  margin-bottom:4px;
+}
+.form-control{
+  border-radius:999px;
+  border:1px solid rgba(90,130,255,0.65);
+  background:rgba(5,16,40,0.95);
+  color:#e9f2ff;
+  font-size:.95rem;
+  padding-inline:14px;
+  box-shadow:0 0 0 1px rgba(0,0,0,0.45) inset;
+}
+.form-control::placeholder{ color:#5d76a8; font-size:.85rem; }
+.form-control:focus{
+  border-color:var(--neon-blue);
+  box-shadow:0 0 0 .15rem rgba(41,212,255,0.45);
+  background:rgba(3,10,30,1);
+  color:#ffffff;
+}
+
+/* Nút con mắt */
+.btn-eye{
+  border-top-right-radius:999px;
+  border-bottom-right-radius:999px;
+  border-color:rgba(90,130,255,0.8);
+  background:linear-gradient(135deg,#07142d,#071d3d);
+  color:#a8c7ff;
+  font-size:.9rem;
+}
+.btn-eye:hover{
+  background:linear-gradient(135deg,#0b2446,#103263);
+  color:#ffffff;
+}
+
+/* Buttons */
+.btn-primary-neon{
+  border-radius:999px;
+  border:none;
+  font-weight:700;
+  font-size:.95rem;
+  background:linear-gradient(90deg,#00f0ff,#29b5ff);
+  color:#02111f;
+  box-shadow:
+    0 0 18px rgba(0,240,255,0.75),
+    0 0 36px rgba(0,167,255,0.85);
+}
+.btn-primary-neon:hover{
+  filter:brightness(1.1);
+  box-shadow:
+    0 0 22px rgba(0,240,255,0.9),
+    0 0 44px rgba(0,167,255,0.9);
+}
+.btn-secondary-neon{
+  border-radius:999px;
+  border:none;
+  font-weight:700;
+  font-size:.95rem;
+  background:linear-gradient(90deg,#ff4fd8,#ff8b7c);
+  color:#130014;
+  box-shadow:
+    0 0 18px rgba(255,79,216,0.75),
+    0 0 36px rgba(255,139,124,0.75);
+}
+.btn-secondary-neon:hover{
+  filter:brightness(1.05);
+  box-shadow:
+    0 0 22px rgba(255,79,216,0.9),
+    0 0 44px rgba(255,139,124,0.9);
+}
+
+/* Nút về trang giới thiệu */
+.btn-outline-ghost{
+  border-radius:999px;
+  border:1px solid rgba(160,185,255,0.6);
+  background:linear-gradient(90deg, rgba(3,10,32,0.9), rgba(5,14,40,0.95));
+  color:#c5d8ff;
+  font-weight:500;
+  font-size:.9rem;
+}
+.btn-outline-ghost:hover{
+  background:linear-gradient(90deg, rgba(6,18,54,0.95), rgba(8,24,70,0.98));
+  color:#ffffff;
+}
+
+/* Thông báo lỗi */
+.error-text{
+  font-size:.86rem;
+  color:#ff9bb7;
+  text-align:center;
+  margin-top:6px;
+}
+
+/* Đổi màu viền input trong form đăng ký một chút */
+#registerForm .form-control{
+  border-color:rgba(255,79,216,0.7);
+}
+#registerForm .form-control:focus{
+  border-color:#ff8bd6;
+  box-shadow:0 0 0 .15rem rgba(255,139,214,0.55);
+}
+
+/* Responsive nhỏ lại một tẹo trên mobile */
+@media (max-width:576px){
+  .login-card{ padding:22px 18px 20px; }
+  .login-title{ font-size:1.1rem; }
+}
+</style>
+</head>
+
+<body>
+
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="card-inner">
+
+      <!-- LOGO -->
+      <div class="login-logo-row">
+        <img src="{{ url_for('static', filename='logokomlab.png') }}" class="login-logo">
+        <img src="{{ url_for('static', filename='retrack.png') }}" class="login-logo">
+      </div>
+
+      <div class="login-title">HỆ THỐNG RETRACK</div>
+      <div class="login-subtitle">Nền tảng theo dõi & hỗ trợ phục hồi vận động KomLab</div>
+
+      <div class="divider"></div>
+
+      <!-- =================== FORM ĐĂNG NHẬP =================== -->
+      <form id="loginForm" method="post" action="/login">
+        <div class="mb-3">
+          <label class="form-label">Tài khoản</label>
+          <input name="username" class="form-control" placeholder="Nhập tài khoản..." required>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Mật khẩu</label>
+          <div class="input-group">
+            <input id="loginPassword" name="password" type="password" class="form-control" placeholder="Nhập mật khẩu..." required>
+            <button type="button" class="btn btn-eye toggle-password" data-target="loginPassword">👁‍🗨</button>
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-3">
+          <button class="btn btn-primary-neon flex-fill">Đăng nhập</button>
+          <button type="button" class="btn btn-secondary-neon flex-fill" id="btnShowRegister">Đăng ký</button>
+        </div>
+
+        {% if error_message %}
+        <div class="error-text">
+            {{ error_message }}
+        </div>
+        {% endif %}
+      </form>
+
+      <!-- =================== FORM ĐĂNG KÝ =================== -->
+      <form id="registerForm" method="post" action="/register" style="display:none; margin-top:4px;">
+        <div class="mb-2 text-center fw-semibold" style="color:#ffd3ff;">Tạo tài khoản mới</div>
+
+        <div class="mb-3">
+          <label class="form-label">Tài khoản</label>
+          <input name="reg_username" class="form-control" placeholder="" required>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Mật khẩu</label>
+          <div class="input-group">
+            <input id="regPassword" name="reg_password" type="password" class="form-control" required>
+            <button type="button" class="btn btn-eye toggle-password" data-target="regPassword">👁‍🗨</button>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Nhập lại mật khẩu</label>
+          <div class="input-group">
+            <input id="regPassword2" name="reg_password2" type="password" class="form-control" required>
+            <button type="button" class="btn btn-eye toggle-password" data-target="regPassword2">👁‍🗨</button>
+          </div>
+
+          <div id="pwError" class="error-text" style="display:none;">
+             Mật khẩu không khớp
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-2">
+          <button type="submit" class="btn btn-secondary-neon flex-fill">Đăng ký</button>
+          <button type="button" class="btn btn-outline-ghost flex-fill" id="btnShowLogin">← Đăng nhập</button>
+        </div>
+      </form>
+
+      <hr class="mt-4 mb-3" style="border-color:rgba(110,140,255,0.5);">
+
+      <a class="btn btn-outline-ghost w-100" href="#" onclick="alert('BIOTRACKERS - HUST'); return false;">← Về chúng tôi</a>
+
+    </div>
+  </div>
+</div>
+
+<!-- =================== SCRIPT =================== -->
+<script>
+  const loginForm    = document.getElementById('loginForm');
+  const registerForm = document.getElementById('registerForm');
+  const btnShowReg   = document.getElementById('btnShowRegister');
+  const btnShowLogin = document.getElementById('btnShowLogin');
+
+  // Chuyển qua form đăng ký
+  btnShowReg.addEventListener('click', () => {
+      loginForm.style.display = 'none';
+      registerForm.style.display = 'block';
+  });
+
+  // Quay lại đăng nhập
+  btnShowLogin.addEventListener('click', () => {
+      registerForm.style.display = 'none';
+      loginForm.style.display = 'block';
+  });
+
+  // Toggle hiển thị mật khẩu
+  document.querySelectorAll('.toggle-password').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.target);
+      const isHidden = target.type === 'password';
+      target.type = isHidden ? 'text' : 'password';
+      btn.textContent = isHidden ? "🔒" : "👁‍";
+    });
+  });
+
+  // Kiểm tra mật khẩu trùng nhau trong form đăng ký
+  const pw1 = document.getElementById('regPassword');
+  const pw2 = document.getElementById('regPassword2');
+  const pwError = document.getElementById('pwError');
+
+  function checkPw() {
+    if (!pw1.value || !pw2.value) {
+        pwError.style.display = "none";
+        return;
+    }
+    pwError.style.display = pw1.value !== pw2.value ? "block" : "none";
+  }
+
+  pw1.addEventListener("input", checkPw);
+  pw2.addEventListener("input", checkPw);
+
+  registerForm.addEventListener("submit", e => {
+    checkPw();
+    if (pwError.style.display === "block") e.preventDefault();
+  });
+</script>
+
+{% include 'desktop_keepalive.html' %}
+</body></html>
