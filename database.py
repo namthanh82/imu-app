@@ -1,13 +1,20 @@
 import json, os, time
 import threading
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 
 VN_TZ = timezone(timedelta(hours=7))
 
-PATIENTS_FILE = "sample.json"
-RECORD_FILE  = "records.json"
-VAS_FILE = "vas.json"
-EXPORT_DIR = "exports"
+BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = Path(os.environ.get("IMU_WEB_DATA_DIR", str(Path.home() / ".imu-web-min"))).expanduser()
+if not DATA_DIR.is_absolute():
+    DATA_DIR = BASE_DIR / DATA_DIR
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+PATIENTS_FILE = str(DATA_DIR / "sample.json")
+RECORD_FILE  = str(DATA_DIR / "records.json")
+VAS_FILE = str(DATA_DIR / "vas.json")
+EXPORT_DIR = str(DATA_DIR / "exports")
 
 os.makedirs(EXPORT_DIR, exist_ok=True)
 
