@@ -1,0 +1,101 @@
+name: Build desktop releases
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.artifact_name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact_name: ReTrack-Windows
+            archive_name: ReTrack-Windows-Setup.exe
+            dist_path: dist/ReTrack.exe
+          - os: ubuntu-latest
+            artifact_name: ReTrack-Linux
+            archive_name: ReTrack-Linux.tar.gz
+            dist_path: dist/ReTrack
+          - os: macos-latest
+            artifact_name: ReTrack-macOS
+            archive_name: ReTrack-macOS.dmg
+            dist_path: dist/ReTrack.app
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Install Linux desktop packages
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-0 libwebkit2gtk-4.1-0
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build ReTrack
+        env:
+          RETRACK_BUNDLE_ENV: "0"
+        run: pyinstaller --noconfirm --clean ReTrack.spec
+
+      - name: Install Windows installer tooling
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Package Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if ("${{ github.ref_type }}" -eq "tag") {
+            $env:RETRACK_VERSION = "${{ github.ref_name }}".TrimStart("v")
+          } else {
+            $env:RETRACK_VERSION = "0.0.0"
+          }
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          & $iscc "packaging\windows\ReTrack.iss"
+          if (!(Test-Path "${{ matrix.archive_name }}")) {
+            throw "Windows installer was not created."
+          }
+
+      - name: Package Linux artifact
+        if: runner.os == 'Linux'
+        run: |
+          chmod +x "${{ matrix.dist_path }}"
+          tar -czf "${{ matrix.archive_name }}" -C dist ReTrack
+
+      - name: Package macOS dmg
+        if: runner.os == 'macOS'
+        run: hdiutil create -volname ReTrack -srcfolder "${{ matrix.dist_path }}" -ov -format UDZO "${{ matrix.archive_name }}"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.archive_name }}
+          if-no-files-found: error
+
+      - name: Attach artifact to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.archive_name }}
