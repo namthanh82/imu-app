@@ -5,24 +5,33 @@ import os
 import sys
 
 
-project_dir = Path(SPECPATH)
 sys.setrecursionlimit(sys.getrecursionlimit() * 5)
 
+
+project_dir = Path(SPECPATH)
+
+platform_hiddenimports = ["webview"]
+if sys.platform.startswith("win"):
+    platform_hiddenimports.extend([
+        "clr_loader",
+        "pythonnet",
+        "webview.platforms.edgechromium",
+    ])
+elif sys.platform == "darwin":
+    platform_hiddenimports.append("webview.platforms.cocoa")
+else:
+    platform_hiddenimports.append("webview.platforms.gtk")
+
 datas = [
+    (str(project_dir / "templates"), "templates"),
     (str(project_dir / "static"), "static"),
+    (str(project_dir / "imurtrack_ai" / "data"), "imurtrack_ai/data"),
 ]
 
-templates_dir = project_dir / "templates"
-if templates_dir.exists():
-    datas.append((str(templates_dir), "templates"))
-
-ai_data_dir = project_dir / "imurtrack_ai" / "data"
-if ai_data_dir.exists():
-    datas.append((str(ai_data_dir), "imurtrack_ai/data"))
-
 env_file = project_dir / ".env"
-if env_file.exists() and os.environ.get("RETRACK_BUNDLE_ENV", "1").lower() not in {"0", "false", "no"}:
+if env_file.exists() and os.environ.get("RETRACK_BUNDLE_ENV", "1") not in {"0", "false", "False"}:
     datas.append((str(env_file), "."))
+
 
 a = Analysis(
     ["app.py"],
@@ -30,10 +39,12 @@ a = Analysis(
     binaries=[],
     datas=datas,
     hiddenimports=[
+        "backports.tarfile",
         "engineio.async_drivers.threading",
         "serial.tools.list_ports",
-        "webgiaodien",
-    ],
+        "tkinter",
+        "tkinter.filedialog",
+    ] + platform_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -52,7 +63,6 @@ a = Analysis(
     noarchive=False,
     optimize=0,
 )
-
 pyz = PYZ(a.pure)
 
 exe = EXE(

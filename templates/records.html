@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bệnh án điện tử</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
+
+<link href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
+
+<style>
+:root { --blue:#1669c9; --sbw:260px; }
+body { background: #1b4a62;
+  margin:0;
+  font-size:15px;
+}
+.layout{ display:flex; gap:16px; position:relative; }
+
+.sidebar-col{
+  flex:0 0 var(--sbw);
+  max-width:var(--sbw);
+  transition:all .28s ease;
+}
+.sidebar{
+  background:var(--blue); color:#fff;
+  border-top-right-radius:16px;
+  border-bottom-right-radius:16px;
+  padding:16px;
+  min-height:100vh;
+}
+.main-col{ flex:1 1 auto; min-width:0; }
+
+body.sb-collapsed .sidebar-col{
+  flex-basis:0 !important;
+  max-width:0 !important;
+}
+body.sb-collapsed .sidebar{
+  padding:0 !important;
+}
+body.sb-collapsed .sidebar *{
+  display:none;
+}
+
+#btnToggleSB{
+  border:2px solid #d8e6ff;
+  background:#fff;
+  border-radius:10px;
+  padding:6px 10px;
+  font-weight:700;
+}
+#btnToggleSB:hover{ background:#eef6ff; }
+
+.menu-btn{
+  width:100%;
+  display:block;
+  background:#1d74d8;
+  border:none;
+  color:#fff;
+  padding:10px 12px;
+  margin:8px 0;
+  border-radius:12px;
+  font-weight:600;
+  text-align:left;
+  text-decoration:none;
+}
+.menu-btn:hover{ background:#1f5bb0; }
+.menu-btn.active{ background:#0f5bb0; }
+
+.panel{
+  background:transparent;
+  border:none;
+  box-shadow:none;
+  padding:16px;
+  margin-bottom:16px;
+  color:#fff;
+}
+.badge-pill{
+  border-radius:999px;
+}
+
+/* Nút bấm */
+.btn-outline-thick{ 
+  background-color: #314a5d;
+  border: 1px solid #48667b;
+  border-radius: 8px; 
+  color: #fff;
+  font-weight: bold;
+  font-size: 15px;
+  padding: 10px 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+  opacity: 0.9;
+  transition: all 0.2s;
+}
+.btn-outline-thick:hover {
+  opacity: 1;
+  background-color: #3a566b;
+  color: #fff;
+}
+
+/* Input */
+.form-control, .form-select, .input-sm {
+  background: #286c87;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 12px 16px;
+  font-weight: 600;
+  font-size: 15px;
+  transition: all 0.2s;
+}
+.form-control:focus, .form-select:focus {
+  background: #2f738e;
+  color: #fff;
+  box-shadow: 0 0 0 2px #409bbd;
+}
+.form-control::placeholder {
+  color: #92b9c9;
+  opacity: 0.7;
+}
+
+/* Bảng (Table) dark theme */
+.table {
+  color: #fff;
+  border-color: #286c87;
+}
+.table thead th{ 
+  background: #194a5e; 
+  color: #92b9c9;
+  border-bottom: 2px solid #286c87;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+.table tbody td {
+  background: transparent;
+  color: #c9e4f0;
+  border-bottom: 1px solid #286c87;
+}
+.table-hover tbody tr:hover td {
+  background: #286c87;
+  color: #fff;
+}
+
+.text-muted { color: #92b9c9 !important; }
+</style>
+
+<style>
+/* Top Navbar Style (Image 3 look) */
+.header-nav-link { color: #aab6c2; text-decoration: none; font-weight: 500; font-size: 16px; padding: 12px 16px; margin: 0 4px; display: flex; align-items: center; gap: 8px; border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; }
+.header-nav-link:hover { color: #fff; background: rgba(255,255,255,0.05); border-radius: 4px 4px 0 0; }
+.header-nav-link.active { color: #4dc3ff; border-bottom: 3px solid #4dc3ff; }
+.header-nav-link i { font-size: 20px; }
+</style>
+</head>
+
+<body class="sb-collapsed">
+
+<nav class="navbar px-4 py-0" style="background: #0b161f; border-bottom: 1px solid #162b3b;">
+  <div class="container-fluid d-flex align-items-center p-0">
+    <div class="d-flex align-items-center h-100" id="top-nav-menu">
+      <a class="header-nav-link " href="/"><i class="bi bi-house"></i> <span data-i18n="menu.home">Trang chủ</span></a>
+      <a class="header-nav-link " href="/calibration"><i class="bi bi-sliders"></i> <span data-i18n="menu.calib">Hiệu chuẩn</span></a>
+      <a class="header-nav-link " href="/patients/manage"><i class="bi bi-person-lines-fill"></i> <span data-i18n="menu.patinfo">Thông tin bệnh nhân</span></a>
+      <a class="header-nav-link active" href="/records"><i class="bi bi-journal-text"></i> <span data-i18n="menu.record">Bệnh án</span></a>
+      <a class="header-nav-link " href="/charts"><i class="bi bi-bar-chart"></i> <span data-i18n="menu.charts">Biểu đồ</span></a>
+              <button class="header-nav-link" id="btn-open-chatbot" onclick="openChatbotModal()"
+          style="background:none; border:none; cursor:pointer; color:#aab6c2; display:flex; align-items:center; gap:8px; font-weight:500; font-size:16px; padding:12px 16px; border-bottom:3px solid transparent; transition:all 0.2s;"
+          onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#aab6c2'">
+          <i class="bi bi-robot" style="font-size:20px;"></i> <span>Hỗ trợ AI</span>
+        </button>
+<a class="header-nav-link " href="/settings"><i class="bi bi-gear"></i> <span data-i18n="menu.settings">Cài đặt</span></a>
+    </div>
+
+    <div id="selectedPatientDisplay" style="display:none; background:#1669c9; border-radius:8px; font-size: 14px;" class="px-3 py-1 fw-bold text-white shadow-sm ms-4 my-2">
+      Bệnh nhân đang chọn: <span id="spName"></span>
+    </div>
+    
+    <div class="ms-auto d-flex align-items-center py-2">
+      <img src="{{ url_for('static', filename='logokomlab.png') }}" alt="Logo" height="40">
+    </div>
+  </div>
+</nav>
+
+<div class="container-fluid my-3">
+  <div class="layout">
+
+    <!-- Removed Sidebar -->
+
+    <main class="main-col">
+      <div class="panel mb-3">
+        <h5 class="mb-1">Danh sách bệnh án</h5>
+        <div class="text-muted small">
+          Các bản ghi được lưu khi nhấn nút <strong>"Lưu kết quả"</strong> trên trang đo.
+        </div>
+
+        <div class="mt-2">
+          <input id="recordSearch" class="form-control form-control-sm"
+                 placeholder="Tìm theo tên, mã bệnh nhân, ngày đo...">
+        </div>
+      </div>
+
+      <div class="panel">
+        {% if records %}
+        <div class="table-responsive" style="border-radius: 8px; overflow: hidden; border: 1px solid #286c87;">
+          <table class="table table-hover align-middle mb-0" id="recordsTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Thời gian lưu</th>
+                <th>Mã BN</th>
+                <th>Họ và tên</th>
+                <th>Ngày đo</th>
+                <th>Bài tập &amp; điểm</th>
+                <th>Mức đau (VAS)</th>
+                <th style="width:150px;">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in records %}
+              {% set info   = r.patient_info or {} %}
+              {% set scores = r.exercise_scores or {} %}
+              {% set vas    = r.vas_summary or {} %}
+              <tr>
+                <td>{{ loop.index }}</td>
+                <td class="small text-muted">{{ r.created_at }}</td>
+                <td>{{ r.patient_code or "—" }}</td>
+                <td>{{ info.name or "—" }}</td>
+                <td>{{ r.measure_date or "—" }}</td>
+
+                <!-- Bài tập & điểm -->
+                <td>
+                  {% if scores %}
+                    {% for ex_name, ex in scores.items() %}
+                      <div class="small">
+                        <strong>{{ ex_name }}</strong>:
+                        ROM Knee {{ '%.1f'|format(ex.romKnee or 0) }}°
+                        – điểm {{ ex.score or 0 }}/2
+                      </div>
+                    {% endfor %}
+                  {% else %}
+                    <span class="text-muted small">Chưa có điểm bài tập.</span>
+                  {% endif %}
+                </td>
+
+                <!-- Mức đau (VAS) -->
+                <td>
+                  {% if vas %}
+                    {% for ex_name, v in vas.items() %}
+                      {% set vb = v.before if v.before is not none else None %}
+                      {% set va = v.after  if v.after  is not none else None %}
+                      <div class="small">
+                        <strong>{{ ex_name }}</strong>:
+                        {% if vb is not none %}
+                          {{ vb }}/10
+                        {% else %}—{% endif %}
+                        →
+                        {% if va is not none %}
+                          {{ va }}/10
+                        {% else %}—{% endif %}
+                      </div>
+                    {% endfor %}
+                  {% else %}
+                    <span class="text-muted small">Chưa ghi nhận.</span>
+                  {% endif %}
+                </td>
+
+                <td>
+                  <button type="button"
+                          class="btn btn-sm mb-1" style="background:#256d85; border: 1px solid #3c8ea8; color:#fff;"
+                          onclick="exportRecordReport('{{ r.created_at_ts }}')">
+                    In báo cáo
+                  </button>
+                  <button type="button"
+                          class="btn btn-sm" style="background:#8b2f3a; border: 1px solid #a63f4b; color:#fff;"
+                          onclick="deleteRecord({{ loop.index0 }})">
+                    Xóa
+                  </button>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+          <div class="text-muted small">Chưa có bệnh án nào được lưu.</div>
+        {% endif %}
+      </div>
+    </main>
+
+  </div>
+</div>
+
+<script>
+document.getElementById("btnToggleSB").onclick = () =>
+  document.body.classList.toggle("sb-collapsed");
+
+// bộ lọc đơn giản
+const inp = document.getElementById("recordSearch");
+if (inp){
+  inp.addEventListener("input", () => {
+    const kw = inp.value.toLowerCase();
+    document.querySelectorAll("#recordsTable tbody tr").forEach(tr => {
+      tr.style.display = tr.innerText.toLowerCase().includes(kw) ? "" : "none";
+    });
+  });
+}
+
+function exportRecordReport(createdAtTs) {
+  fetch("/api/export_record_report", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ created_at_ts: createdAtTs })
+  })
+  .then(r => r.json())
+  .then(res => {
+    if (res.ok) {
+      alert(`Đã lưu báo cáo:\n${res.path}`);
+    } else {
+      alert("Lỗi: " + (res.msg || "Không lưu được báo cáo."));
+    }
+  })
+  .catch(err => {
+    console.error(err);
+    alert("Lỗi kết nối khi lưu báo cáo.");
+  });
+}
+
+// hàm xóa bản ghi
+function deleteRecord(index) {
+  if (!confirm("Bạn có chắc muốn xóa bản ghi này?")) return;
+
+  fetch("/api/delete_record", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ index })
+  })
+  .then(r => r.json())
+  .then(res => {
+    if (res.ok) {
+      alert("Đã xóa bản ghi.");
+      location.reload();
+    } else {
+      alert("Lỗi: " + (res.msg || "Không xóa được."));
+    }
+  })
+  .catch(err => {
+    console.error(err);
+    alert("Lỗi kết nối khi xóa bản ghi.");
+  });
+}
+</script>
+
+  {% include 'desktop_keepalive.html' %}
+  {% include 'chatbot.html' %}
+</body>
+</html>

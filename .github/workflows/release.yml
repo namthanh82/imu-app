@@ -23,7 +23,7 @@ jobs:
             dist_path: dist/ReTrack.exe
           - os: ubuntu-latest
             artifact_name: ReTrack-Linux
-            archive_name: ReTrack-Linux.tar.gz
+            archive_name: ReTrack-Linux.deb
             dist_path: dist/ReTrack
           - os: macos-latest
             artifact_name: ReTrack-macOS
@@ -40,17 +40,16 @@ jobs:
           python-version: "3.10"
           cache: pip
 
-      - name: Install Linux desktop packages
+      - name: Install Linux desktop build packages
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-0 libwebkit2gtk-4.1-0
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
 
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyinstaller
 
       - name: Build ReTrack
         env:
@@ -77,11 +76,38 @@ jobs:
             throw "Windows installer was not created."
           }
 
-      - name: Package Linux artifact
+      - name: Package Linux deb installer
         if: runner.os == 'Linux'
         run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$VERSION" = "$GITHUB_REF_NAME" ]; then VERSION="0.0.0"; fi
           chmod +x "${{ matrix.dist_path }}"
-          tar -czf "${{ matrix.archive_name }}" -C dist ReTrack
+          mkdir -p package/DEBIAN package/opt/retrack package/usr/local/bin package/usr/share/applications
+          cp "${{ matrix.dist_path }}" package/opt/retrack/ReTrack
+          ln -s /opt/retrack/ReTrack package/usr/local/bin/retrack
+          cat > package/DEBIAN/control <<EOF
+          Package: retrack
+          Version: ${VERSION}
+          Section: science
+          Priority: optional
+          Architecture: amd64
+          Maintainer: BIOTRACKERS <support@example.com>
+          Depends: libgtk-3-0, libwebkit2gtk-4.1-0
+          Description: ReTrack IMU rehabilitation tracking desktop app
+           ReTrack records and analyzes IMU rehabilitation sessions in a desktop window.
+          EOF
+          sed -i 's/^          //' package/DEBIAN/control
+          cat > package/usr/share/applications/retrack.desktop <<EOF
+          [Desktop Entry]
+          Type=Application
+          Name=ReTrack
+          Comment=IMU rehabilitation tracking desktop app
+          Exec=/opt/retrack/ReTrack
+          Terminal=false
+          Categories=Science;MedicalSoftware;
+          EOF
+          sed -i 's/^          //' package/usr/share/applications/retrack.desktop
+          dpkg-deb --build package "${{ matrix.archive_name }}"
 
       - name: Package macOS dmg
         if: runner.os == 'macOS'

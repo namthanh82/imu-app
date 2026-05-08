@@ -1,0 +1,28 @@
+# ── Core Web Framework ────────────────────────────────────
+Flask==3.0.3
+Flask-Login==0.6.3
+Flask-SocketIO==5.3.6
+Werkzeug==3.0.3
+
+# ── Configuration ─────────────────────────────────────────
+python-dotenv==1.0.1
+
+# ── Serial / IMU Hardware ─────────────────────────────────
+pyserial==3.5
+
+# ── Desktop Packaging ────────────────────────────────────
+backports.tarfile
+pyinstaller==6.11.1
+pywebview
+
+# ── Deployment ────────────────────────────────────────────
+gunicorn==22.0.0
+
+# ── AI Chatbot (RAG) ─────────────────────────────────────
+openai
+langchain-community
+langchain-openai
+langchain-classic
+langchain-text-splitters
+faiss-cpu
+pypdf

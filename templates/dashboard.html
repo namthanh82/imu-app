@@ -1,0 +1,3341 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>IMU Dashboard</title>
+  <link href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
+  <script src="{{ url_for('static', filename='vendor/marked/marked.min.js') }}"></script>
+  <script type="importmap">
+{ "imports": { "three": "{{ url_for('static', filename='vendor/three/three.module.js') }}" } }
+</script>
+
+  <style>
+    :root {
+      --blue: #1669c9;
+      --soft: #f3f7ff;
+      --sbw: 260px;
+      --video-h: 360px;
+    }
+
+    body {
+      background: #1b4a62;
+      /* màu xanh nước biển */
+    }
+
+    .layout {
+      display: flex;
+      gap: 16px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      background: var(--blue);
+      color: #fff;
+      border-top-right-radius: 16px;
+      border-bottom-right-radius: 16px;
+      padding: 16px;
+      width: var(--sbw);
+      min-height: 100%;
+      box-sizing: border-box;
+    }
+
+    .sidebar-col {
+      flex: 0 0 var(--sbw);
+      max-width: var(--sbw);
+      transition: flex-basis .28s ease, max-width .28s ease, transform .28s ease;
+      will-change: flex-basis, max-width, transform;
+    }
+
+    .main-col {
+      flex: 1 1 auto;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 80px);
+    }
+
+    /* ===== CSS VAS ===== */
+    .vas-wrapper {
+      padding: 16px 18px;
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+    }
+
+    .vas-line-container {
+      position: relative;
+      width: 100%;
+    }
+
+    .vas-line {
+      height: 3px;
+      background: #0097b2;
+      margin-bottom: 26px;
+    }
+
+    .vas-ticks {
+      display: flex;
+      justify-content: space-between;
+      position: relative;
+      margin-top: -18px;
+    }
+
+    .vas-tick {
+      position: relative;
+      font-size: 14px;
+      color: #222;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .vas-tick::before {
+      content: "";
+      width: 2px;
+      height: 18px;
+      background: #0097b2;
+      display: block;
+      margin: 0 auto 4px auto;
+    }
+
+    .vas-tick.active::before {
+      background: #ff5722;
+      height: 24px;
+    }
+
+    .vas-tick.active {
+      color: #ff5722;
+      font-weight: 600;
+    }
+
+    .vas-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 24px;
+      font-size: 11px;
+      color: #fff;
+      color: #444;
+      text-align: center;
+    }
+
+    .vas-labels span small {
+      font-size: 10px;
+    }
+
+    /* Thu gọn mặc định */
+    .sb-collapsed .sidebar-col {
+      flex-basis: 0;
+      max-width: 0;
+      transform: translateX(-8px);
+    }
+
+    .sb-collapsed .sidebar {
+      padding: 0;
+      width: 0;
+      border-radius: 0;
+    }
+
+    .sb-collapsed .sidebar * {
+      display: none;
+    }
+
+    .panel {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 8px 20px rgba(16, 24, 40, .06);
+      padding: 16px;
+      overflow: hidden;
+    }
+
+    .title-chip {
+      display: inline-block;
+      background: #e6f2ff;
+      border: 2px solid #9ccaff;
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 14px;
+      font-weight: 800;
+    }
+
+    .table thead th {
+      background: #eef5ff;
+      color: #083a6a
+    }
+
+    .btn-outline-thick {
+      border: 2px solid #151515;
+      border-radius: 12px;
+      background: #fff;
+      font-weight: 700;
+    }
+
+    .form-label {
+      font-weight: 600;
+      color: #244e78
+    }
+
+    .compact .row.g-3 {
+      --bs-gutter-x: 1rem;
+      --bs-gutter-y: 1rem;
+    }
+
+    .compact .btn-outline-thick {
+      padding: 10px 12px;
+      border-radius: 10px;
+    }
+
+    #guideVideo {
+      height: 100% !important;
+      width: 100% !important;
+      border-radius: 14px;
+      background: #000;
+      min-height: 0;
+      object-fit: cover !important;
+    }
+
+    @media (min-width:1400px) {
+      :root {
+        --video-h: 400px;
+      }
+    }
+
+    @media (min-width:992px) {
+      .pull-up-guide {
+        margin-top: -318px !important;
+      }
+    }
+
+    #btnToggleSB {
+      border: 1px solid #48667b;
+      border-radius: 8px;
+      background: #286c87;
+      color: #fff;
+      padding: 6px 10px;
+      font-weight: 700;
+    }
+
+    #btnToggleSB:hover {
+      background: #3a86a6;
+      color: #fff;
+    }
+
+    .menu-btn {
+      width: 100%;
+      display: block;
+      background: #1973d4;
+      border: none;
+      color: #fff;
+      padding: 10px 12px;
+      margin: 8px 0;
+      border-radius: 12px;
+      font-weight: 600;
+      text-align: left;
+      text-decoration: none;
+    }
+
+    .menu-btn:hover {
+      background: #1f80ea;
+      color: #fff
+    }
+
+    /* =========================================
+   NÚT BẤM 3D & ANIMATION (ĐÃ PHÓNG TO)
+   ========================================= */
+    #modeSelector {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      flex-direction: row;
+      gap: 20px;
+      /* Tăng khoảng cách giữa các nút */
+      z-index: 10;
+      transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+
+    /* Khi đã chọn chế độ: Nút trượt sang phải, xếp dọc */
+    #modeSelector.mode-selected {
+      left: 100%;
+      transform: translate(calc(-100% - 24px), -50%);
+      flex-direction: column;
+    }
+
+    .btn-3d-mech {
+      position: relative;
+      background: #ffffff;
+      border: 2px solid #d4e3f5;
+      border-radius: 18px;
+      /* Bo góc to hơn */
+      padding: 14px 18px;
+      /* Tăng lề bên trong nút */
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      /* Tăng khoảng cách chữ và hình */
+      min-width: 120px;
+      /* Nút rộng hơn */
+      box-shadow: 0 6px 0 #c2d8f0, 0 10px 15px rgba(22, 105, 201, 0.1);
+      transform: translateY(0);
+      transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s;
+    }
+
+    .btn-3d-mech:hover {
+      background: #f8fbff;
+      border-color: #b8cde6;
+    }
+
+    .btn-3d-mech:active,
+    .btn-3d-mech.active {
+      transform: translateY(6px);
+      box-shadow: 0 0px 0 #1669c9, 0 4px 8px rgba(22, 105, 201, 0.2);
+      border-color: #1669c9;
+      background: #f0f7ff;
+    }
+
+    .btn-3d-mech span {
+      font-weight: 700;
+      color: #5c7794;
+      font-size: 15px;
+      /* Chữ to hơn */
+      transition: color 0.2s;
+    }
+
+    .btn-3d-mech.active span {
+      color: #1669c9;
+    }
+
+    .icon-stage {
+      position: relative;
+      width: 54px;
+      height: 54px;
+      /* Vùng chứa hình to hơn */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .icon-stage::after {
+      content: "";
+      position: absolute;
+      bottom: -4px;
+      width: 36px;
+      height: 8px;
+      /* Bóng mờ dưới chân to hơn */
+      background: radial-gradient(ellipse at center, rgba(16, 36, 94, 0.15) 0%, transparent 70%);
+      border-radius: 50%;
+    }
+
+    .btn-3d-mech svg {
+      position: relative;
+      z-index: 2;
+      --color-upper: #cbd6e2;
+      --color-lower: #cbd6e2;
+      transition: all 0.3s;
+    }
+
+    .btn-3d-mech.active#btn-full svg {
+      --color-upper: #1669c9;
+      --color-lower: #1669c9;
+      filter: drop-shadow(0 2px 4px rgba(22, 105, 201, 0.4));
+    }
+
+    .btn-3d-mech.active#btn-upper svg {
+      --color-upper: #1669c9;
+      --color-lower: #d8e1eb;
+      filter: drop-shadow(0 2px 4px rgba(22, 105, 201, 0.3));
+    }
+
+    .btn-3d-mech.active#btn-lower svg {
+      --color-upper: #d8e1eb;
+      --color-lower: #1669c9;
+      filter: drop-shadow(0 2px 4px rgba(22, 105, 201, 0.3));
+    }
+
+    /* ===================== EMG UI ===================== */
+    .emg-card {
+      background: #286c87;
+      color: #fff;
+      border-radius: 16px;
+      padding: 14px 14px 12px;
+      box-shadow: 0 8px 20px rgba(16, 24, 40, .10);
+    }
+
+    .emg-hr {
+      width: 210px;
+    }
+
+    .emg-hr .input-group-text,
+    .emg-hr .form-control {
+      border-color: #1b4a62;
+      font-weight: 800;
+    }
+
+    .emg-hr .form-control {
+      text-align: center;
+    }
+
+    .emg-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .emg-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .emg-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #20c997;
+      box-shadow: 0 0 0 6px rgba(32, 201, 151, .14);
+    }
+
+    .emg-title .title-chip {
+      margin: 0;
+    }
+
+    .emg-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .emg-pill {
+      border: 1px solid #286c87;
+      background: #112a3e;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-weight: 700;
+      font-size: 12px;
+      color: #fff;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .emg-pill strong {
+      font-size: 13px;
+    }
+
+    .emg-rms {
+      border: 1px solid #286c87;
+      background: #112a3e;
+      color: #fff;
+    }
+
+    .emg-rms strong {
+      font-size: 14px;
+    }
+
+    .emg-plot {
+      position: relative;
+      min-height: 0;
+      flex: 1;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #162b3b;
+      background-color: #0a1218;
+      background-image: linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    #emgChart {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .emg-controls {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .emg-controls .input-group .input-group-text {
+      font-weight: 800;
+      background: #112a3e;
+      border-color: #1b4a62;
+      color: #fff;
+    }
+
+    .emg-controls .form-select,
+    .emg-controls .form-control {
+      border-color: #1b4a62;
+      font-weight: 700;
+    }
+
+    .emg-hint {
+      margin-top: 8px;
+      color: #5b6b7c;
+      font-size: 12px;
+    }
+
+    .mini-chart-card {
+      position: relative;
+      transition: box-shadow 0.2s ease, transform 0.2s ease;
+    }
+
+    .mini-chart-card.is-expanded {
+      position: fixed !important;
+      inset: 80px 36px 24px 36px;
+      z-index: 1500;
+      transform: none;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+    }
+
+    .mini-chart-card.is-expanded canvas {
+      min-height: 360px;
+    }
+
+    .mini-chart-card .chart-expand-btn {
+      width: 22px;
+      height: 22px;
+      line-height: 1;
+      border: 1px solid #2d4f63;
+      background: #0d1c26;
+      color: #cfe0ea;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .mini-chart-card .chart-expand-btn:hover {
+      background: #153243;
+      color: #fff;
+    }
+
+    .mini-chart-card .chart-expand-head {
+      cursor: zoom-in;
+    }
+
+    .mini-chart-card.is-expanded .chart-expand-head {
+      cursor: zoom-out;
+    }
+
+    .mini-chart-toolbar {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin: 0 0 10px 0;
+    }
+
+    .mini-chart-toggle-btn {
+      border: 1px solid #2c5167;
+      background: #102532;
+      color: #cfe0ea;
+      border-radius: 999px;
+      font-size: 11px;
+      line-height: 1;
+      padding: 5px 9px;
+      cursor: pointer;
+    }
+
+    .mini-chart-toggle-btn:hover {
+      background: #16374a;
+      color: #fff;
+    }
+
+    .mini-chart-toggle-btn.is-on {
+      background: #238b9d;
+      border-color: #238b9d;
+      color: #fff;
+    }
+
+    .mini-chart-card.chart-hidden {
+      display: none !important;
+    }
+
+    .chart-visibility-group {
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.18);
+    }
+
+    .chart-visibility-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #9ec5d7;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      letter-spacing: 0.6px;
+    }
+
+    .emg-hidden {
+      display: none !important;
+    }
+
+    .gutter.gutter-horizontal {
+      background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAeCAYAAADkftS9AAAAIklEQVQoU2M4c+bMfxAGAgYYQyMACVD8ANYKqMRw6xUDCAAByA9L/q2oUwAAAABJRU5ErkJggg==');
+      cursor: col-resize;
+      width: 6px;
+    }
+  </style>
+
+  <style>
+    /* Dark Mode Overrides for Charts */
+    .emg-pill {
+      border: 1px solid #253c4b !important;
+      background: #112a3e !important;
+      color: #fff !important;
+    }
+
+    .emg-hr .input-group-text {
+      background: #112a3e !important;
+      border-color: #253c4b !important;
+      color: #fff !important;
+    }
+
+    .emg-controls .input-group-text {
+      background: #112a3e !important;
+      border-color: #253c4b !important;
+      color: #fff !important;
+    }
+
+    .emg-controls .form-select {
+      background: #112a3e !important;
+      border-color: #253c4b !important;
+      color: #fff !important;
+    }
+
+    .emg-controls .form-control {
+      background: #112a3e !important;
+      border-color: #253c4b !important;
+      color: #fff !important;
+    }
+
+    canvas {
+      background: transparent !important;
+    }
+
+    .btn-outline-light {
+      color: #aab6c2;
+      border-color: #253c4b;
+      background: transparent;
+    }
+
+    .btn-outline-light.active {
+      background: #1a3245;
+      color: #fff;
+    }
+
+    /* Bảng hiển thị Bệnh nhân (Dark theme) */
+    .table.table-dark-custom {
+      color: #fff;
+      border-color: #286c87;
+      --bs-table-bg: transparent;
+    }
+
+    .table.table-dark-custom thead th {
+      background: #194a5e !important;
+      color: #92b9c9 !important;
+      border-bottom: 2px solid #286c87 !important;
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 1px;
+    }
+
+    .table.table-dark-custom tbody td {
+      background: transparent !important;
+      color: #c9e4f0 !important;
+      border-bottom: 1px solid #286c87 !important;
+    }
+
+    .table.table-dark-custom.table-hover tbody tr:hover td {
+      background: #286c87 !important;
+      color: #fff !important;
+    }
+
+    /* Top Navbar Style (Image 3 look) */
+    .header-nav-link {
+      color: #aab6c2;
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 16px;
+      padding: 12px 16px;
+      margin: 0 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .header-nav-link:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px 4px 0 0;
+    }
+
+    .header-nav-link.active {
+      color: #4dc3ff;
+      border-bottom: 3px solid #4dc3ff;
+    }
+
+    .header-nav-link i {
+      font-size: 20px;
+    }
+  </style>
+</head>
+
+
+<body class="compact sb-collapsed">
+  <nav class="navbar px-4 py-0" style="background: #0b161f; border-bottom: 1px solid #162b3b;">
+    <div class="container-fluid d-flex align-items-center p-0">
+      <div class="d-flex align-items-center h-100" id="top-nav-menu">
+        <a class="header-nav-link active" href="/"><i class="bi bi-house"></i> <span data-i18n="menu.home">Trang
+            chủ</span></a>
+        <a class="header-nav-link " href="/calibration"><i class="bi bi-sliders"></i> <span data-i18n="menu.calib">Hiệu
+            chuẩn</span></a>
+        <a class="header-nav-link " href="/patients/manage"><i class="bi bi-person-lines-fill"></i> <span
+            data-i18n="menu.patinfo">Thông tin bệnh nhân</span></a>
+        <a class="header-nav-link " href="/records"><i class="bi bi-journal-text"></i> <span
+            data-i18n="menu.record">Bệnh án</span></a>
+        <a class="header-nav-link " href="/charts"><i class="bi bi-bar-chart"></i> <span data-i18n="menu.charts">Biểu
+            đồ</span></a>
+        <button class="header-nav-link" id="btn-open-chatbot" onclick="openChatbotModal()"
+          style="background:none; border:none; cursor:pointer; color:#aab6c2; display:flex; align-items:center; gap:8px; font-weight:500; font-size:16px; padding:12px 16px; border-bottom:3px solid transparent; transition:all 0.2s;"
+          onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#aab6c2'">
+          <i class="bi bi-robot" style="font-size:20px;"></i> <span>Hỗ trợ AI</span>
+        </button>
+        <a class="header-nav-link " href="/settings"><i class="bi bi-gear"></i> <span data-i18n="menu.settings">Cài
+            đặt</span></a>
+      </div>
+
+      <div class="ms-auto d-flex align-items-center py-2">
+        <img src="{{ url_for('static', filename='logokomlab.png') }}" alt="Logo" height="40">
+      </div>
+    </div>
+  </nav>
+
+  <div class="container-fluid my-3">
+    <div class="layout">
+      <!-- Removed Sidebar -->
+
+
+      <main class="main-col d-flex flex-column" style="height: calc(100vh - 85px); min-height: 700px;">
+        <div class="row g-2 flex-grow-1" style="min-height:0; flex: 1 1 auto; margin-bottom:0;">
+
+          <!-- LEFT COLUMN: Settings & Charts (col-lg-7) -->
+          <div class="col-xl-5 col-lg-5 d-flex flex-column gap-2" style="height:100%;">
+
+            <!-- Charts Panel -->
+            <div class="panel flex-grow-1 d-flex flex-column shadow-sm border-0 overflow-hidden p-2"
+              style="background: transparent; color: #fff;">
+
+              <div class="d-flex gap-2 mb-2 align-items-center" id="chart-tabs"
+                style="padding: 4px 0; overflow-x: auto; flex-wrap: nowrap; white-space: nowrap;">
+                <button class="btn btn-sm text-light px-3 fw-bold tab-btn active" onclick="toggleRealtimeCard('emg')"
+                  id="tab-emg"
+                  style="background: #238b9d; border: 1px solid #238b9d; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">Cơ
+                  điện đồ (EMG)</button>
+                <button class="btn btn-sm text-light px-3 fw-bold tab-btn" onclick="toggleRealtimeCard('angles')"
+                  id="tab-angles"
+                  style="background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;">Góc
+                  khớp</button>
+                <button class="btn btn-sm btn-outline-light px-3" id="tab-ecg" onclick="toggleRealtimeCard('ecg')">Điện
+                  tim (ECG)</button>
+              </div>
+              <div id="ecgCard" class="d-none flex-column flex-grow-1">
+                <div class="card-header-custom"
+                  style="background: #1a3d5c; color: #00ff00; border-bottom: 1px solid #00ff0033;">
+                  <i class="bi bi-heart-pulse-fill me-2"></i>TÍN HIỆU ĐIỆN TIM (ECG)
+                </div>
+                <div class="flex-grow-1 p-2" style="background:#050c14; min-height: 280px;">
+                  <canvas id="ecgChart"></canvas>
+                </div>
+              </div>
+
+              <div class="emg-card d-flex flex-column" id="emgCard"
+                style="flex: 1 1 0; min-height: 0; border:none; box-shadow:none; padding: 0;">
+                <div class="emg-head mb-1 d-flex justify-content-between align-items-center">
+                  <div class="emg-title"><span class="fw-bold" style="color:#ffffff;"></span></div>
+                  <div class="d-flex flex-column p-0 gap-2"
+                    style="flex: 1 1 0; min-height: 0; background: transparent;">
+                    <div class="input-group input-group-sm" style="width: 110px;">
+                    </div>
+                  </div>
+                </div>
+                <div class="d-grid gap-2"
+                  style="flex: 1 1 0; min-height: 0; background: transparent; grid-template-columns: 1fr 1fr; overflow-y: auto; padding-right: 4px;">
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #fd7e14; border-radius: 1px;"></div> Khớp Vai
+                        (Trái)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">uV</div>
+                    </div>
+                    <div class="d-flex flex-row" style="flex: 1 1 0; min-height: 0;">
+                      <div style="flex: 1 1 0; min-height: 0; min-width: 0; position:relative; padding-bottom: 4px;">
+                        <canvas id="emgChartShoulderLT"></canvas>
+                      </div>
+                      <div class="d-flex flex-column align-items-center justify-content-center"
+                        style="width:40px; border-left: 1px solid #233b4d; background: #1a2b38;">
+                        <div
+                          style="font-size:12px; font-weight:bold; color:#fff; border-bottom: 1px solid #233b4d; width:100%; text-align:center; padding-bottom: 4px;"
+                          id="emgScaleTxtShoulderLT">400</div>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('ShoulderLT', 1)">+</button>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('ShoulderLT', -1)">-</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #fd7e14; border-radius: 1px;"></div> Khớp Vai
+                        (Phải)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">uV</div>
+                    </div>
+                    <div class="d-flex flex-row" style="flex: 1 1 0; min-height: 0;">
+                      <div style="flex: 1 1 0; min-height: 0; min-width: 0; position:relative; padding-bottom: 4px;">
+                        <canvas id="emgChartShoulderRT"></canvas>
+                      </div>
+                      <div class="d-flex flex-column align-items-center justify-content-center"
+                        style="width:40px; border-left: 1px solid #233b4d; background: #1a2b38;">
+                        <div
+                          style="font-size:12px; font-weight:bold; color:#fff; border-bottom: 1px solid #233b4d; width:100%; text-align:center; padding-bottom: 4px;"
+                          id="emgScaleTxtShoulderRT">400</div>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('ShoulderRT', 1)">+</button>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('ShoulderRT', -1)">-</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #6f42c1; border-radius: 1px;"></div> Khớp Khuỷu
+                        (Trái)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">uV</div>
+                    </div>
+                    <div class="d-flex flex-row" style="flex: 1 1 0; min-height: 0;">
+                      <div style="flex: 1 1 0; min-height: 0; min-width: 0; position:relative; padding-bottom: 4px;">
+                        <canvas id="emgChartElbowLT"></canvas>
+                      </div>
+                      <div class="d-flex flex-column align-items-center justify-content-center"
+                        style="width:40px; border-left: 1px solid #233b4d; background: #1a2b38;">
+                        <div
+                          style="font-size:12px; font-weight:bold; color:#fff; border-bottom: 1px solid #233b4d; width:100%; text-align:center; padding-bottom: 4px;"
+                          id="emgScaleTxtElbowLT">400</div>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('ElbowLT', 1)">+</button>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('ElbowLT', -1)">-</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #6f42c1; border-radius: 1px;"></div> Khớp Khuỷu
+                        (Phải)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">uV</div>
+                    </div>
+                    <div class="d-flex flex-row" style="flex: 1 1 0; min-height: 0;">
+                      <div style="flex: 1 1 0; min-height: 0; min-width: 0; position:relative; padding-bottom: 4px;">
+                        <canvas id="emgChartElbowRT"></canvas>
+                      </div>
+                      <div class="d-flex flex-column align-items-center justify-content-center"
+                        style="width:40px; border-left: 1px solid #233b4d; background: #1a2b38;">
+                        <div
+                          style="font-size:12px; font-weight:bold; color:#fff; border-bottom: 1px solid #233b4d; width:100%; text-align:center; padding-bottom: 4px;"
+                          id="emgScaleTxtElbowRT">400</div>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('ElbowRT', 1)">+</button>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('ElbowRT', -1)">-</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #20c997; border-radius: 1px;"></div> Cổ T./Bàn
+                        Tay (Trái)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">uV</div>
+                    </div>
+                    <div class="d-flex flex-row" style="flex: 1 1 0; min-height: 0;">
+                      <div style="flex: 1 1 0; min-height: 0; min-width: 0; position:relative; padding-bottom: 4px;">
+                        <canvas id="emgChartHandLT"></canvas>
+                      </div>
+                      <div class="d-flex flex-column align-items-center justify-content-center"
+                        style="width:40px; border-left: 1px solid #233b4d; background: #1a2b38;">
+                        <div
+                          style="font-size:12px; font-weight:bold; color:#fff; border-bottom: 1px solid #233b4d; width:100%; text-align:center; padding-bottom: 4px;"
+                          id="emgScaleTxtHandLT">400</div>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('HandLT', 1)">+</button>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('HandLT', -1)">-</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #20c997; border-radius: 1px;"></div> Cổ T./Bàn
+                        Tay (Phải)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">uV</div>
+                    </div>
+                    <div class="d-flex flex-row" style="flex: 1 1 0; min-height: 0;">
+                      <div style="flex: 1 1 0; min-height: 0; min-width: 0; position:relative; padding-bottom: 4px;">
+                        <canvas id="emgChartHandRT"></canvas>
+                      </div>
+                      <div class="d-flex flex-column align-items-center justify-content-center"
+                        style="width:40px; border-left: 1px solid #233b4d; background: #1a2b38;">
+                        <div
+                          style="font-size:12px; font-weight:bold; color:#fff; border-bottom: 1px solid #233b4d; width:100%; text-align:center; padding-bottom: 4px;"
+                          id="emgScaleTxtHandRT">400</div>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('HandRT', 1)">+</button>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('HandRT', -1)">-</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #e83e8c; border-radius: 1px;"></div> Lưng/Thân
+                        Mình (Trái)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">uV</div>
+                    </div>
+                    <div class="d-flex flex-row" style="flex: 1 1 0; min-height: 0;">
+                      <div style="flex: 1 1 0; min-height: 0; min-width: 0; position:relative; padding-bottom: 4px;">
+                        <canvas id="emgChartTrunkLT"></canvas>
+                      </div>
+                      <div class="d-flex flex-column align-items-center justify-content-center"
+                        style="width:40px; border-left: 1px solid #233b4d; background: #1a2b38;">
+                        <div
+                          style="font-size:12px; font-weight:bold; color:#fff; border-bottom: 1px solid #233b4d; width:100%; text-align:center; padding-bottom: 4px;"
+                          id="emgScaleTxtTrunkLT">400</div>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('TrunkLT', 1)">+</button>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('TrunkLT', -1)">-</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #e83e8c; border-radius: 1px;"></div> Lưng/Thân
+                        Mình (Phải)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">uV</div>
+                    </div>
+                    <div class="d-flex flex-row" style="flex: 1 1 0; min-height: 0;">
+                      <div style="flex: 1 1 0; min-height: 0; min-width: 0; position:relative; padding-bottom: 4px;">
+                        <canvas id="emgChartTrunkRT"></canvas>
+                      </div>
+                      <div class="d-flex flex-column align-items-center justify-content-center"
+                        style="width:40px; border-left: 1px solid #233b4d; background: #1a2b38;">
+                        <div
+                          style="font-size:12px; font-weight:bold; color:#fff; border-bottom: 1px solid #233b4d; width:100%; text-align:center; padding-bottom: 4px;"
+                          id="emgScaleTxtTrunkRT">400</div>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('TrunkRT', 1)">+</button>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('TrunkRT', -1)">-</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #d63384; border-radius: 1px;"></div> Khớp Háng
+                        (Trái)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">uV</div>
+                    </div>
+                    <div class="d-flex flex-row" style="flex: 1 1 0; min-height: 0;">
+                      <div style="flex: 1 1 0; min-height: 0; min-width: 0; position:relative; padding-bottom: 4px;">
+                        <canvas id="emgChartHipLT"></canvas>
+                      </div>
+                      <div class="d-flex flex-column align-items-center justify-content-center"
+                        style="width:40px; border-left: 1px solid #233b4d; background: #1a2b38;">
+                        <div
+                          style="font-size:12px; font-weight:bold; color:#fff; border-bottom: 1px solid #233b4d; width:100%; text-align:center; padding-bottom: 4px;"
+                          id="emgScaleTxtHipLT">400</div>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('HipLT', 1)">+</button>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('HipLT', -1)">-</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #d63384; border-radius: 1px;"></div> Khớp Háng
+                        (Phải)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">uV</div>
+                    </div>
+                    <div class="d-flex flex-row" style="flex: 1 1 0; min-height: 0;">
+                      <div style="flex: 1 1 0; min-height: 0; min-width: 0; position:relative; padding-bottom: 4px;">
+                        <canvas id="emgChartHipRT"></canvas>
+                      </div>
+                      <div class="d-flex flex-column align-items-center justify-content-center"
+                        style="width:40px; border-left: 1px solid #233b4d; background: #1a2b38;">
+                        <div
+                          style="font-size:12px; font-weight:bold; color:#fff; border-bottom: 1px solid #233b4d; width:100%; text-align:center; padding-bottom: 4px;"
+                          id="emgScaleTxtHipRT">400</div>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('HipRT', 1)">+</button>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('HipRT', -1)">-</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #0dcaf0; border-radius: 1px;"></div> Khớp Gối
+                        (Trái)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">uV</div>
+                    </div>
+                    <div class="d-flex flex-row" style="flex: 1 1 0; min-height: 0;">
+                      <div style="flex: 1 1 0; min-height: 0; min-width: 0; position:relative; padding-bottom: 4px;">
+                        <canvas id="emgChartKneeLT"></canvas>
+                      </div>
+                      <div class="d-flex flex-column align-items-center justify-content-center"
+                        style="width:40px; border-left: 1px solid #233b4d; background: #1a2b38;">
+                        <div
+                          style="font-size:12px; font-weight:bold; color:#fff; border-bottom: 1px solid #233b4d; width:100%; text-align:center; padding-bottom: 4px;"
+                          id="emgScaleTxtKneeLT">400</div>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('KneeLT', 1)">+</button>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('KneeLT', -1)">-</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #0dcaf0; border-radius: 1px;"></div> Khớp Gối
+                        (Phải)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">uV</div>
+                    </div>
+                    <div class="d-flex flex-row" style="flex: 1 1 0; min-height: 0;">
+                      <div style="flex: 1 1 0; min-height: 0; min-width: 0; position:relative; padding-bottom: 4px;">
+                        <canvas id="emgChartKneeRT"></canvas>
+                      </div>
+                      <div class="d-flex flex-column align-items-center justify-content-center"
+                        style="width:40px; border-left: 1px solid #233b4d; background: #1a2b38;">
+                        <div
+                          style="font-size:12px; font-weight:bold; color:#fff; border-bottom: 1px solid #233b4d; width:100%; text-align:center; padding-bottom: 4px;"
+                          id="emgScaleTxtKneeRT">400</div>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('KneeRT', 1)">+</button>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('KneeRT', -1)">-</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #ffc107; border-radius: 1px;"></div> Khớp Cổ
+                        Chân (Trái)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">uV</div>
+                    </div>
+                    <div class="d-flex flex-row" style="flex: 1 1 0; min-height: 0;">
+                      <div style="flex: 1 1 0; min-height: 0; min-width: 0; position:relative; padding-bottom: 4px;">
+                        <canvas id="emgChartAnkleLT"></canvas>
+                      </div>
+                      <div class="d-flex flex-column align-items-center justify-content-center"
+                        style="width:40px; border-left: 1px solid #233b4d; background: #1a2b38;">
+                        <div
+                          style="font-size:12px; font-weight:bold; color:#fff; border-bottom: 1px solid #233b4d; width:100%; text-align:center; padding-bottom: 4px;"
+                          id="emgScaleTxtAnkleLT">400</div>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('AnkleLT', 1)">+</button>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('AnkleLT', -1)">-</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #ffc107; border-radius: 1px;"></div> Khớp Cổ
+                        Chân (Phải)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">uV</div>
+                    </div>
+                    <div class="d-flex flex-row" style="flex: 1 1 0; min-height: 0;">
+                      <div style="flex: 1 1 0; min-height: 0; min-width: 0; position:relative; padding-bottom: 4px;">
+                        <canvas id="emgChartAnkleRT"></canvas>
+                      </div>
+                      <div class="d-flex flex-column align-items-center justify-content-center"
+                        style="width:40px; border-left: 1px solid #233b4d; background: #1a2b38;">
+                        <div
+                          style="font-size:12px; font-weight:bold; color:#fff; border-bottom: 1px solid #233b4d; width:100%; text-align:center; padding-bottom: 4px;"
+                          id="emgScaleTxtAnkleRT">400</div>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('AnkleRT', 1)">+</button>
+                        <button class="btn p-0 text-light fw-bold mt-1"
+                          style="width:20px; height:18px; line-height:1; background:#081014; border:1px solid #233b4d; font-size: 14px; border-radius:3px;"
+                          onclick="window.zoomMyScale('AnkleRT', -1)">-</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="emg-card d-none flex-column" id="anglesCard"
+                style="flex: 1 1 0; min-height: 0; border:none; box-shadow:none; padding: 0;">
+                <div class="emg-head mb-1 d-flex justify-content-between align-items-center">
+
+                </div>
+                <div class="d-grid gap-2"
+                  style="flex: 1 1 0; min-height: 0; background: transparent; grid-template-columns: 1fr 1fr; overflow-y: auto; padding-right: 4px;">
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #fd7e14; border-radius: 1px;"></div> Khớp Vai
+                        (Trái)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">độ</div>
+                    </div>
+                    <div style="flex: 1 1 0; min-height: 80px; position:relative; padding-bottom: 4px;"><canvas
+                        id="anglesChartShoulderLT"></canvas></div>
+                  </div>
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #fd7e14; border-radius: 1px;"></div> Khớp Vai
+                        (Phải)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">độ</div>
+                    </div>
+                    <div style="flex: 1 1 0; min-height: 0; position:relative; padding-bottom: 4px;"><canvas
+                        id="anglesChartShoulderRT"></canvas></div>
+                  </div>
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #6f42c1; border-radius: 1px;"></div> Khớp Khuỷu
+                        (Trái)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">độ</div>
+                    </div>
+                    <div style="flex: 1 1 0; min-height: 0; position:relative; padding-bottom: 4px;"><canvas
+                        id="anglesChartElbowLT"></canvas></div>
+                  </div>
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #6f42c1; border-radius: 1px;"></div> Khớp Khuỷu
+                        (Phải)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">độ</div>
+                    </div>
+                    <div style="flex: 1 1 0; min-height: 0; position:relative; padding-bottom: 4px;"><canvas
+                        id="anglesChartElbowRT"></canvas></div>
+                  </div>
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #20c997; border-radius: 1px;"></div> Cổ T./Bàn
+                        Tay (Trái)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">độ</div>
+                    </div>
+                    <div style="flex: 1 1 0; min-height: 0; position:relative; padding-bottom: 4px;"><canvas
+                        id="anglesChartHandLT"></canvas></div>
+                  </div>
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #20c997; border-radius: 1px;"></div> Cổ T./Bàn
+                        Tay (Phải)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">độ</div>
+                    </div>
+                    <div style="flex: 1 1 0; min-height: 0; position:relative; padding-bottom: 4px;"><canvas
+                        id="anglesChartHandRT"></canvas></div>
+                  </div>
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #e83e8c; border-radius: 1px;"></div> Lưng/Thân
+                        Mình (Trái)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">độ</div>
+                    </div>
+                    <div style="flex: 1 1 0; min-height: 0; position:relative; padding-bottom: 4px;"><canvas
+                        id="anglesChartTrunkLT"></canvas></div>
+                  </div>
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #e83e8c; border-radius: 1px;"></div> Lưng/Thân
+                        Mình (Phải)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">độ</div>
+                    </div>
+                    <div style="flex: 1 1 0; min-height: 0; position:relative; padding-bottom: 4px;"><canvas
+                        id="anglesChartTrunkRT"></canvas></div>
+                  </div>
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #d63384; border-radius: 1px;"></div> Khớp Háng
+                        (Trái)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">độ</div>
+                    </div>
+                    <div style="flex: 1 1 0; min-height: 0; position:relative; padding-bottom: 4px;"><canvas
+                        id="anglesChartHipLT"></canvas></div>
+                  </div>
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #d63384; border-radius: 1px;"></div> Khớp Háng
+                        (Phải)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">độ</div>
+                    </div>
+                    <div style="flex: 1 1 0; min-height: 0; position:relative; padding-bottom: 4px;"><canvas
+                        id="anglesChartHipRT"></canvas></div>
+                  </div>
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #0dcaf0; border-radius: 1px;"></div> Khớp Gối
+                        (Trái)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">độ</div>
+                    </div>
+                    <div style="flex: 1 1 0; min-height: 0; position:relative; padding-bottom: 4px;"><canvas
+                        id="anglesChartKneeLT"></canvas></div>
+                  </div>
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #0dcaf0; border-radius: 1px;"></div> Khớp Gối
+                        (Phải)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">độ</div>
+                    </div>
+                    <div style="flex: 1 1 0; min-height: 0; position:relative; padding-bottom: 4px;"><canvas
+                        id="anglesChartKneeRT"></canvas></div>
+                  </div>
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #ffc107; border-radius: 1px;"></div> Khớp Cổ
+                        Chân (Trái)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">độ</div>
+                    </div>
+                    <div style="flex: 1 1 0; min-height: 0; position:relative; padding-bottom: 4px;"><canvas
+                        id="anglesChartAnkleLT"></canvas></div>
+                  </div>
+                  <div class="d-flex flex-column"
+                    style="flex: 1 1 0; min-height: 0; background: #081014; border: 1px solid #162b3b; border-radius: 8px; overflow: hidden;">
+                    <div class="d-flex justify-content-between align-items-center"
+                      style="padding:4px 10px; background: #153243; border-bottom: 1px solid #162b3b;">
+                      <div
+                        style="font-size:11px; font-weight:600; color:#dceaf0; display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #ffc107; border-radius: 1px;"></div> Khớp Cổ
+                        Chân (Phải)
+                      </div>
+                      <div style="font-size:10px; color:#aab6c2; font-weight:bold;">độ</div>
+                    </div>
+                    <div style="flex: 1 1 0; min-height: 0; position:relative; padding-bottom: 4px;"><canvas
+                        id="anglesChartAnkleRT"></canvas></div>
+                  </div>
+                </div>
+              </div>
+
+              <div id="exercise-result-panel" style="display:none;" class="mt-2 text-center">
+                <h6 id="exercise-title-text" class="fw-bold mb-1"></h6>
+                <div style="height:80px; width:100%; display:none;"><canvas id="exercise-chart"></canvas></div>
+                <div class="mt-1 small">
+                  Dải hoạt động khớp háng: <span id="rom-hip-text" class="fw-bold">0°</span> |
+                  Dải hoạt động khớp gối: <span id="rom-knee-text" class="fw-bold">0°</span> |
+                  Dải hoạt động khớp cổ chân: <span id="rom-ankle-text" class="fw-bold">0°</span>
+                </div>
+                <div class="mt-1 fw-bold text-success">Điểm: <span id="score-text">0</span>/2</div>
+                <button id="btn-next-ex" class="btn btn-sm btn-outline-primary mt-1">Bài tiếp theo</button>
+              </div>
+
+              <div id="all-exercise-summary" style="display:none;" class="mt-2 p-2 bg-light rounded text-center small">
+                <h6 class="fw-bold mb-1">Tổng kết tất cả bài tập</h6>
+                <ul class="mb-1 list-unstyled text-muted" id="summary-list"></ul>
+                <div class="fw-bold text-white">Tổng điểm: <span id="total-score-text">0</span></div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- RIGHT MIDDLE COLUMN: Video & 3D (col-lg-3) -->
+          <div class="col-xl-5 col-lg-5 d-flex flex-column gap-2" style="height:100%;" id="visualContainerCol">
+            <div class="panel p-0 overflow-hidden shadow-sm border-0 d-flex flex-column position-relative"
+              style="flex: 1 1 50%; min-height: 300px; background: #0e1a24; border-radius: 12px; transition: all 0.3s ease;"
+              id="panelVideo">
+              <button onclick="window.toggleMaxView(this)"
+                class="btn btn-sm btn-outline-light position-absolute top-0 end-0 m-2 z-3 px-2 py-1 shadow-sm fw-bold"
+                style="border-radius:6px; opacity:0.8;" title="Phóng to/Thu nhỏ">[ + ]</button>
+              <video id="guideVideo" class="w-100 h-100" style="object-fit: cover;" playsinline preload="metadata" muted
+                autoplay loop poster="">
+                Sorry, your browser doesn't support embedded videos.
+              </video>
+            </div>
+            <div class="panel p-0 position-relative shadow-sm border-0 flex-grow-1"
+              style="flex: 1 1 50%; min-height: 300px; background: #0e1a24; border-radius: 12px; overflow: hidden; transition: all 0.3s ease;"
+              id="panel3D">
+              <button onclick="window.toggleMaxView(this)"
+                class="btn btn-sm btn-outline-light position-absolute top-0 end-0 m-2 z-3 px-2 py-1 shadow-sm fw-bold"
+                style="border-radius:6px; opacity:0.8;" title="Phóng to/Thu nhỏ">[ + ]</button>
+              <svg width="0" height="0" style="position: absolute;">
+                <defs>
+                  <filter id="shadow3d" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow dx="2" dy="3" stdDeviation="2" flood-color="#73869c" flood-opacity="0.5" />
+                  </filter>
+                </defs>
+              </svg>
+
+              <div class="position-absolute w-100 text-center p-2 z-3" style="top:0; pointer-events:none;">
+
+                <div class="small fw-bold px-3 py-1 rounded-pill bg-white shadow-sm mx-auto mt-1 text-white"
+                  id="status3D"
+                  style="display: none; width:max-content; transition: opacity 0.3s; pointer-events:none;">Đang tải mô
+                  hình...</div>
+              </div>
+
+              <div id="threeMount" class="position-absolute w-100 h-100"
+                style="top:0; left:0; z-index:1; opacity: 1; transition: opacity 0.8s ease;"></div>
+
+              <!-- 3D Camera Controls Mini -->
+              <div id="camControlUI" class="position-absolute z-3 d-flex gap-1 p-1 shadow-sm"
+                style="bottom: 8px; right: 8px; background:rgba(255,255,255,0.85); border-radius:8px; pointer-events: auto;">
+                <button class="btn btn-sm btn-outline-light p-1" onclick="zoomCam(0.8)" title="Thu nhỏ"
+                  style="line-height:1;"><svg width="18" height="18" viewBox="0 0 24 24">
+                    <path
+                      d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14zM7 9h5v1H7V9z" />
+                  </svg></button>
+                <button class="btn btn-sm btn-outline-light p-1" onclick="zoomCam(1.2)" title="Phóng to"
+                  style="line-height:1;"><svg width="18" height="18" viewBox="0 0 24 24">
+                    <path
+                      d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14zM9 7h1v2h2v1h-2v2H9v-2H7v-1h2V7z" />
+                  </svg></button>
+                <div style="width: 4px; background:#ddd; margin: 2px 2px; border-radius:2px;"></div>
+                <button class="btn btn-sm btn-outline-light fw-bold" style="font-size:11px; padding:2px 6px;"
+                  onclick="viewCam('front')" title="Mặt trước">T</button>
+                <button class="btn btn-sm btn-outline-light fw-bold" style="font-size:11px; padding:2px 6px;"
+                  onclick="viewCam('left')" title="Mặt trái">L</button>
+                <button class="btn btn-sm btn-outline-light fw-bold" style="font-size:11px; padding:2px 6px;"
+                  onclick="viewCam('right')" title="Mặt phải">R</button>
+                <button class="btn btn-sm btn-outline-light fw-bold" style="font-size:11px; padding:2px 6px;"
+                  onclick="viewCam('back')" title="Mặt sau">S</button>
+                <button class="btn btn-sm btn-outline-light fw-bold" style="font-size:11px; padding:2px 6px;"
+                  onclick="viewCam('top')" title="Mặt trên">U</button>
+              </div>
+              <div id="poseUI" class="d-none"></div>
+            </div>
+          </div>
+
+          <!-- FAR RIGHT COLUMN: Tools Menu (col-lg-2) -->
+          <div class="col-xl-2 col-lg-2 d-flex flex-column gap-2" style="height:100%;">
+            <div class="panel flex-grow-1 shadow-sm border-0 d-flex flex-column p-0"
+              style="background: #194a5e; color: #fff; border-radius: 12px; overflow: hidden;">
+
+
+
+              <div class="p-3 flex-grow-1 overflow-auto sidebar-menu-btns"
+                style="position: relative; overflow-x: hidden;">
+                <style>
+                  .sidebar-menu-btns .btn-tool {
+                    display: block;
+                    width: 100%;
+                    text-align: left;
+                    background: #225a70;
+                    color: #fff;
+                    border: none;
+                    margin-bottom: 8px;
+                    border-radius: 6px;
+                    padding: 8px 12px;
+                    font-weight: 600;
+                    font-size: 13px;
+                    transition: all 0.2s;
+                    cursor: pointer;
+                  }
+
+                  .sidebar-menu-btns .btn-tool:hover {
+                    background: #2f738e;
+                  }
+
+                  .sidebar-menu-btns .btn-tool.active-tool {
+                    background: #409bbd;
+                    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+                    border-left: 4px solid #fff;
+                  }
+
+                  .sidebar-menu-btns .tool-group {
+                    font-size: 11px;
+                    color: #fff;
+                    color: #92b9c9;
+                    text-transform: uppercase;
+                    font-weight: 700;
+                    margin: 16px 0 8px 4px;
+                    letter-spacing: 1px;
+                  }
+
+                  .menu-slider {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    padding: 1rem;
+                    overflow-y: auto;
+                    transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+                    background: #194a5e;
+                  }
+                </style>
+
+
+                <!-- SUB LEVEL: PROFILE SETUP -->
+                <div class="menu-slider" id="menuProfile"
+                  style="transform: translateX(100%); z-index: 2; overflow-y: auto; opacity: 0; pointer-events: none;">
+                  <div class="d-flex align-items-center mb-4">
+                    <button class="btn btn-sm me-2 fw-bold" onclick="window.closeSidebarMenu()"
+                      style="background: transparent; border: none; color: #fff; font-size: 20px; padding: 0;">←</button>
+                    <h6 class="mb-0 fw-bold text-white fs-6">Hồ sơ Bệnh nhân</h6>
+                  </div>
+
+                  <div class="tool-group" style="margin-top:0;">Danh sách & Thêm mới</div>
+                  <button class="btn-tool mb-2" id="btnPatientList" data-i18n="dash.patient_list"
+                    style="background:#1669c9; text-align:center; display:block; width:100%;">Danh sách bệnh
+                    nhân</button>
+                  <a class="btn-tool mb-3 d-block text-decoration-none text-center" href="/patients/new"
+                    data-i18n="dash.add_patient" style="background:#286c87;">Thêm bệnh nhân mới</a>
+
+
+
+                  <!-- Hidden patient fields -->
+                  <div class="d-none">
+                    <input type="hidden" id="pat_name"><input type="hidden" id="pat_dob"><input type="hidden"
+                      id="pat_cccd">
+                    <input type="hidden" id="pat_gender"><input type="hidden" id="pat_weight"><input type="hidden"
+                      id="pat_height">
+                    <input type="hidden" id="pat_code">
+                  </div>
+                </div>
+
+                <!-- MAIN LEVEL -->
+                <div class="menu-slider" id="menuMain"
+                  style="transform: translateX(0%); z-index: 1; opacity: 1; pointer-events: auto;">
+
+                  <div class="tool-group" style="margin-top:0;">HỒ SƠ & BỆNH NHÂN</div>
+                  <button class="btn-tool d-flex justify-content-between align-items-center mb-4"
+                    onclick="window.openSidebarMenu('menuProfile')" style="background: #286c87;">
+                    <span>Thiết lập hồ sơ</span>
+                    <span style="font-size:12px; font-weight: bold;">❯</span>
+                  </button>
+
+
+                  <div class="tool-group mt-4">MÔ HÌNH 3D</div>
+                  <button class="btn-tool d-flex justify-content-between align-items-center mb-4"
+                    onclick="window.openSidebarMenu('menu3DModels')" style="background: #286c87;">
+                    <span>Tùy chọn Mô Hình</span>
+                    <span style="font-size:12px; font-weight: bold;">❯</span>
+                  </button>
+
+                  <div class="tool-group mt-4">VIDEO & PHÂN TÍCH</div>
+                  <button class="btn-tool d-flex justify-content-between align-items-center"
+                    onclick="window.openSidebarMenu('menuVideoOptions')" style="openSidebarMenu('menuVideoAnalysis')"
+                    style="background: #286c87" ;>
+                    <span>Phân tích Video (Bài tập)</span>
+                    <span style="font-size:12px; font-weight: bold;">❯</span>
+                  </button>
+
+                  <div class="tool-group mt-4">BIỂU ĐỒ REALTIME</div>
+                  <button class="btn-tool d-flex justify-content-between align-items-center"
+                    onclick="window.openSidebarMenu('menuChartVisibility')" style="background: #286c87;">
+                    <span>Ẩn/hiện biểu đồ</span>
+                    <span style="font-size:12px; font-weight: bold;">❯</span>
+                  </button>
+
+                  <div class="tool-group mt-4">Hỗ trợ AI</div>
+                  <button class="btn-tool" style="display:flex; justify-content:space-between; align-items:center;"
+                    onclick="openChatbotModal()">
+                    <span>Tư vấn & Hỏi đáp AI</span>
+                    <span>❯</span>
+                  </button>
+                </div>
+
+                <!-- SUB LEVEL: 3D MODELS -->
+                <div class="menu-slider" id="menu3DModels"
+                  style="transform: translateX(100%); z-index: 2; overflow-y: auto; opacity: 0; pointer-events: none;">
+                  <div class="d-flex align-items-center mb-1">
+                    <button class="btn btn-sm me-2 fw-bold" onclick="window.closeSidebarMenu()"
+                      style="background: transparent; border: none; color: #fff; font-size: 20px; padding: 0;">←</button>
+                    <h6 class="mb-0 fw-bold text-white fs-6">Chọn Mô Hình</h6>
+                  </div>
+                  <div class="tool-group" style="margin-top:0;">Hiển thị</div>
+                  <button class="btn-tool active-tool" id="tool-btn-full"
+                    onclick="selectViewMode('btn-full', 'tool-btn-full')">Mô hình Toàn thân</button>
+                  <button class="btn-tool" id="tool-btn-upper"
+                    onclick="selectViewMode('btn-upper', 'tool-btn-upper')">Mô hình Chi trên</button>
+                  <button class="btn-tool" id="tool-btn-lower"
+                    onclick="selectViewMode('btn-lower', 'tool-btn-lower')">Mô hình Chi dưới</button>
+                </div>
+
+                <!-- SUB LEVEL: VIDEO OPTIONS -->
+                <div class="menu-slider" id="menuVideoOptions"
+                  style="transform: translateX(100%); z-index: 2; overflow-y: auto; opacity: 0; pointer-events: none;">
+                  <div class="d-flex align-items-center mb-1">
+                    <button class="btn btn-sm me-2 fw-bold" onclick="window.closeSidebarMenu()"
+                      style="background: transparent; border: none; color: #fff; font-size: 20px; padding: 0;">←</button>
+                    <h6 class="mb-0 fw-bold text-white fs-6">Tùy chọn Video</h6>
+                  </div>
+                  <div class="tool-group" style="margin-top:0;">Tác vụ</div>
+                  <button class="btn-tool fw-bold text-center" style="border:none;" data-bs-toggle="modal"
+                    data-bs-target="#exerciseModal">Chọn Bài Tập</button>
+                  <button class="btn-tool text-center" onclick="window.captureVideoFrame()">Sao chép ảnh</button>
+                  <button class="btn-tool text-center" onclick="window.rotateGuideVideo()">Xoay Video</button>
+
+                  <button class="btn-tool text-center" onclick="deleteCurrentExercise()">Xóa Video</button>
+                  <button class="btn-tool text-center" onclick="window.exportCurrentVideo()">Trích xuất Video</button>
+                  <button class="btn-tool text-center" onclick="window.addExerciseVideo()">Thêm
+                    Video/Bài tập</button>
+                  <input type="file" id="exerciseVideoInput" accept="video/*" class="d-none">
+                </div>
+
+                <div class="menu-slider" id="menuChartVisibility"
+                  style="transform: translateX(100%); z-index: 2; overflow-y: auto; opacity: 0; pointer-events: none;">
+                  <div class="d-flex align-items-center mb-1">
+                    <button class="btn btn-sm me-2 fw-bold" onclick="window.closeSidebarMenu()"
+                      style="background: transparent; border: none; color: #fff; font-size: 20px; padding: 0;">←</button>
+                    <h6 class="mb-0 fw-bold text-white fs-6">Ẩn/Hiện biểu đồ</h6>
+                  </div>
+                  <div class="tool-group" style="margin-top:0;">EMG / Góc khớp</div>
+                  <div id="chartVisibilityContent"></div>
+                </div>
+
+                <!-- SUB LEVEL: VIDEO ANALYSIS (BÀI TẬP) -->
+                <div class="menu-slider" id="menuVideoAnalysis"
+                  style="transform: translateX(100%); z-index: 2; overflow-y: auto; opacity: 0; pointer-events: none;">
+                  <div class="d-flex align-items-center mb-1">
+                    <button class="btn btn-sm me-2 fw-bold" onclick="window.closeSidebarMenu()"
+                      style="background: transparent; border: none; color: #fff; font-size: 20px; padding: 0;">←</button>
+                    <h6 class="mb-0 fw-bold text-white fs-6">Phân tích Video</h6>
+                  </div>
+                  <div style="font-size: 12px; color: #a1cddc; margin-bottom: 16px; padding-left: 32px;">Chọn bài tập
+                    phân tích.</div>
+
+                  <div class="tool-group" style="margin-top:0;">Các bài tập (Exercises)</div>
+                  <button class="btn-tool active-tool" id="btn-ex-ankle"
+                    onclick="window.changeSidebarExercise('Gập khớp cổ chân', this)"> Gập khớp cổ chân</button>
+                  <button class="btn-tool" id="btn-ex-knee"
+                    onclick="window.changeSidebarExercise('Gập khớp gối', this)"> Gập khớp gối</button>
+                  <button class="btn-tool" id="btn-ex-hip"
+                    onclick="window.changeSidebarExercise('Gập khớp háng', this)"> Gập khớp háng</button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+        <!-- BOTTOM BAR (Sticky style actions) -->
+        <div class="panel mt-2 py-2 px-3 shadow-sm border-0 d-flex align-items-center justify-content-between"
+          style="background: #0f4055; border-radius: 12px;">
+
+          <div class="d-flex align-items-center gap-3">
+            <div class="d-flex align-items-center gap-1"
+              style="background: rgba(255,255,255,0.1); border-radius: 12px; padding: 4px;">
+              <button class="btn btn-sm d-flex align-items-center justify-content-center text-white"
+                style="border:none; width: 32px; height: 32px; border-radius: 8px; transition: 0.2s;"
+                onmouseover="this.style.background='rgba(255,255,255,0.2)'"
+                onmouseout="this.style.background='transparent'"
+                onclick="document.getElementById('guideVideo').currentTime = 0" title="Về đầu">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="19 20 9 12 19 4 19 20"></polygon>
+                  <line x1="5" y1="19" x2="5" y2="5"></line>
+                </svg>
+              </button>
+              <button class="btn btn-sm d-flex align-items-center justify-content-center text-white"
+                style="border:none; width: 32px; height: 32px; border-radius: 8px; transition: 0.2s;"
+                onmouseover="this.style.background='rgba(255,255,255,0.2)'"
+                onmouseout="this.style.background='transparent'"
+                onclick="document.getElementById('guideVideo').currentTime -= 5" title="Lùi 5s">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="11 19 2 12 11 5 11 19"></polygon>
+                  <polygon points="22 19 13 12 22 5 22 19"></polygon>
+                </svg>
+              </button>
+              <button class="btn btn-sm d-flex align-items-center justify-content-center text-white"
+                style="border:none; width: 44px; height: 32px; border-radius: 8px; background: rgba(255,255,255,0.15); transition: 0.2s;"
+                onmouseover="this.style.background='rgba(255,255,255,0.3)'"
+                onmouseout="this.style.background='rgba(255,255,255,0.15)'"
+                onclick="const v = document.getElementById('guideVideo'); v.paused ? v.play() : v.pause()"
+                id="playPauseBtnToggle" title="Phát/Dừng">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+              </button>
+              <button class="btn btn-sm d-flex align-items-center justify-content-center text-white"
+                style="border:none; width: 32px; height: 32px; border-radius: 8px; transition: 0.2s;"
+                onmouseover="this.style.background='rgba(255,255,255,0.2)'"
+                onmouseout="this.style.background='transparent'"
+                onclick="document.getElementById('guideVideo').currentTime += 5" title="Tiến 5s">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="13 19 22 12 13 5 13 19"></polygon>
+                  <polygon points="2 19 11 12 2 5 2 19"></polygon>
+                </svg>
+              </button>
+              <button class="btn btn-sm d-flex align-items-center justify-content-center text-white"
+                style="border:none; width: 32px; height: 32px; border-radius: 8px; transition: 0.2s;"
+                onmouseover="this.style.background='rgba(255,255,255,0.2)'"
+                onmouseout="this.style.background='transparent'"
+                onclick="const v = document.getElementById('guideVideo'); v.currentTime = v.duration || 0"
+                title="Đến cuối">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="5 4 15 12 5 20 5 4"></polygon>
+                  <line x1="19" y1="5" x2="19" y2="19"></line>
+                </svg>
+              </button>
+            </div>
+
+            <div class="input-group input-group-sm shadow-sm" style="width: 105px;">
+              <span class="input-group-text fw-bold text-light border-0 py-1"
+                style="background: #153243; font-size: 13px;">Hiển thị</span>
+              <input class="form-control text-light border-0 py-1 text-center fw-bold" id="emgWin" type="number"
+                value="5" min="1" style="background: #081014; font-size: 13px;">
+              <span class="input-group-text fw-bold text-light border-0 py-1"
+                style="background: #153243; font-size: 13px;">s</span>
+            </div>
+          </div>
+
+          <div id="selectedPatientDisplay" style="display:none; font-size: 15px;"
+            class="fw-bold text-white mx-3 flex-grow-1 text-center">
+            Bệnh nhân: <span id="spName" style="color: #64b5f6;"></span>
+          </div>
+
+          <div class="d-flex align-items-center gap-2">
+            <button class="btn text-white fw-bold px-4 shadow-sm" id="btnStart"
+              style="border-radius: 8px; background-color: #314a5d; border: 1px solid #48667b; opacity: 0.9;"
+              onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.9'">Bắt đầu đo</button>
+            <button class="btn text-white fw-bold px-4 shadow-sm" id="btnStop"
+              style="border-radius: 8px; background-color: #314a5d; border: 1px solid #48667b; opacity: 0.9;"
+              onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.9'">Kết thúc đo</button>
+            <button class="btn btn-success fw-bold px-4 shadow-sm" id="btnSave" style="border-radius: 8px;">Lưu kết
+              quả</button>
+          </div>
+
+        </div>
+
+      </main>
+
+    </div>
+  </div>
+
+  <div class="modal fade" id="patientModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content" style="background:#1b4a62; border: 1px solid #286c87; color:#fff;">
+        <div class="modal-header" style="border-bottom: 1px solid #286c87;">
+          <h5 class="modal-title" data-i18n="pat.modal_title">Danh sách bệnh nhân</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input id="pm_search" class="form-control mb-2" placeholder="Tìm kiếm..."
+            data-i18n-placeholder="pat.modal_search"
+            style="background: #286c87; color: #fff; border: none; border-radius: 6px; font-weight: 600; padding: 12px 16px;">
+          <div class="table-responsive"
+            style="max-height:400px; border-radius: 8px; overflow: hidden; border: 1px solid #286c87;">
+            <table class="table table-hover align-middle mb-0 table-dark-custom">
+              <thead>
+                <tr>
+                  <th data-i18n="pat.th_index">#</th>
+                  <th data-i18n="pat.th_code">Mã</th>
+                  <th data-i18n="pat.th_name">Họ và tên</th>
+                  <th data-i18n="pat.th_cccd">CCCD</th>
+                  <th data-i18n="pat.th_dob">Ngày sinh</th>
+                  <th data-i18n="pat.th_gender">Giới tính</th>
+                </tr>
+              </thead>
+              <tbody id="pm_body"></tbody>
+            </table>
+          </div>
+          <div class="small mt-2" style="color: #92b9c9;" data-i18n="pat.modal_hint">Nhấp đúp vào 1 dòng để chọn bệnh
+            nhân.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="vasModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="vasModalTitle">Đánh giá mức độ đau (VAS)</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted mb-3" id="vasModalSubtitle">Vui lòng chọn mức độ đau từ 0 (không đau) đến 10 (đau tệ
+            nhất).</p>
+          <div class="vas-wrapper">
+            <div class="vas-line-container">
+              <div class="vas-line"></div>
+              <div class="vas-ticks">
+                <div class="vas-tick" data-value="0" onclick="selectVASTick(0)">0</div>
+                <div class="vas-tick" data-value="1" onclick="selectVASTick(1)">1</div>
+                <div class="vas-tick" data-value="2" onclick="selectVASTick(2)">2</div>
+                <div class="vas-tick" data-value="3" onclick="selectVASTick(3)">3</div>
+                <div class="vas-tick" data-value="4" onclick="selectVASTick(4)">4</div>
+                <div class="vas-tick" data-value="5" onclick="selectVASTick(5)">5</div>
+                <div class="vas-tick" data-value="6" onclick="selectVASTick(6)">6</div>
+                <div class="vas-tick" data-value="7" onclick="selectVASTick(7)">7</div>
+                <div class="vas-tick" data-value="8" onclick="selectVASTick(8)">8</div>
+                <div class="vas-tick" data-value="9" onclick="selectVASTick(9)">9</div>
+                <div class="vas-tick" data-value="10" onclick="selectVASTick(10)">10</div>
+              </div>
+              <div class="vas-labels">
+                <span>0<br><small>Không đau</small></span><span>1–2<br><small>Đau rất nhẹ</small></span>
+                <span>3–4<br><small>Đau nhẹ đến<br>trung bình</small></span><span>5–6<br><small>Đau trung bình<br>đến
+                    nhiều</small></span>
+                <span>7–8<br><small>Đau nhiều</small></span><span>9–10<br><small>Đau rất nhiều /<br>tệ
+                    nhất</small></span>
+              </div>
+            </div>
+            <div class="mt-3"><strong>Mức đau bạn chọn: </strong><span id="vasSelected">0 – Không đau</span></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button type="button" class="btn btn-primary" id="vasConfirmBtn"> Xác nhận mức đau </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
+
+  <script>
+    const I18N = {
+      vi: { "menu.title": "MENU", "menu.home": "Trang chủ", "menu.calib": "Hiệu chuẩn", "menu.patinfo": "Thông tin bệnh nhân", "menu.review": "Xem lại", "menu.record": "Bệnh án", "menu.charts": "Biểu đồ", "menu.settings": "Cài đặt", "emg.window": "Cửa sổ", "unit.second": "s", "dash.patient_list": "Danh sách bệnh nhân", "dash.add_patient": "Thêm bệnh nhân mới", "dash.heart_label": "Nhịp tim :", "dash.heart_unit": "bpm", "dash.emg_title": "EMG", "dash.3d_title": "MÔ PHỎNG 3D", "dash.3d_source": "Nguồn: hip/knee/ankle từ IMU (độ)", "dash.reset3d": "Reset 3D", "dash.start_measure": "Bắt đầu đo", "dash.stop_measure": "Kết thúc đo", "dash.save_result": "Lưu kết quả", "dash.rom_hip": "ROM Hip:", "dash.rom_knee": "ROM Knee:", "dash.rom_ankle": "ROM Ankle:", "dash.score_this_ex": "Điểm bài này:", "dash.next_ex": "Bài tập tiếp theo", "dash.summary_all": "Tổng kết tất cả bài tập", "dash.total_score": "Tổng điểm:", "pat.name": "Họ và tên :", "pat.dob": "Ngày sinh :", "pat.id": "CCCD :", "pat.gender": "Giới tính :", "pat.weight": "Cân nặng :", "pat.height": "Chiều cao :", "pat.exercise": "Bài kiểm tra :", "pat.measure_date": "Ngày đo :", "pat.modal_title": "Danh sách bệnh nhân", "pat.modal_search": "Tìm kiếm...", "pat.th_index": "#", "pat.th_code": "Mã", "pat.th_name": "Họ và tên", "pat.th_cccd": "CCCD", "pat.th_dob": "Ngày sinh", "pat.th_gender": "Giới tính", "pat.modal_hint": "Nhấp đúp vào 1 dòng để chọn bệnh nhân." },
+      en: { "menu.title": "MENU", "menu.home": "Home", "menu.calib": "Calibration", "menu.patinfo": "Patient info", "menu.review": "Review", "menu.record": "Medical record", "menu.charts": "Charts", "menu.settings": "Settings", "emg.window": "Window", "unit.second": "s", "dash.patient_list": "Patient list", "dash.add_patient": "Add new patient", "dash.heart_label": "Heart rate:", "dash.heart_unit": "bpm", "dash.emg_title": "EMG", "dash.3d_title": "3D Simulation", "dash.3d_source": "Source: hip/knee/ankle from IMU (deg)", "dash.reset3d": "Reset 3D", "dash.start_measure": "Start measurement", "dash.stop_measure": "Stop measurement", "dash.save_result": "Save results", "dash.rom_hip": "ROM Hip:", "dash.rom_knee": "ROM Knee:", "dash.rom_ankle": "ROM Ankle:", "dash.score_this_ex": "Score for this exercise:", "dash.next_ex": "Next exercise", "dash.summary_all": "Summary of all exercises", "dash.total_score": "Total score:", "pat.name": "Full name:", "pat.dob": "Date of birth:", "pat.id": "National ID:", "pat.gender": "Gender:", "pat.weight": "Weight:", "pat.height": "Height:", "pat.exercise": "Exercise:", "pat.measure_date": "Measurement date:", "pat.modal_title": "Patient list", "pat.modal_search": "Search...", "pat.th_index": "#", "pat.th_code": "Code", "pat.th_name": "Full name", "pat.th_cccd": "National ID", "pat.th_dob": "Date of birth", "pat.th_gender": "Gender", "pat.modal_hint": "Double-click a row to select patient." }
+    };
+    function applyLanguage(lang) {
+      const dict = I18N[lang] || I18N.vi;
+      document.querySelectorAll("[data-i18n]").forEach(el => { const key = el.getAttribute("data-i18n"); if (dict[key]) el.textContent = dict[key]; });
+      document.querySelectorAll("[data-i18n-placeholder]").forEach(el => { const key = el.getAttribute("data-i18n-placeholder"); if (dict[key]) el.placeholder = dict[key]; });
+    }
+    document.addEventListener("DOMContentLoaded", () => { applyLanguage(localStorage.getItem("appLang") || "vi"); });
+  </script>
+
+  <script>
+    window.openSidebarMenu = function (menuId) {
+      console.log("Mở menu:", menuId);
+      document.getElementById('menuMain').style.transform = 'translateX(-100%)';
+      document.getElementById('menuMain').style.opacity = '0';
+      document.getElementById('menuMain').style.pointerEvents = 'none';
+      const sub = document.getElementById(menuId);
+      if (sub) {
+        sub.style.transform = 'translateX(0%)';
+        sub.style.opacity = '1';
+        sub.style.pointerEvents = 'auto';
+      } else {
+        console.error("Không tìm thấy menu:", menuId);
+      }
+    };
+    window.closeSidebarMenu = function () {
+      document.getElementById('menuMain').style.transform = 'translateX(0%)';
+      document.getElementById('menuMain').style.opacity = '1';
+      document.getElementById('menuMain').style.pointerEvents = 'auto';
+      document.querySelectorAll('.menu-slider').forEach(el => {
+        if (el.id !== 'menuMain') {
+          el.style.transform = 'translateX(100%)';
+          el.style.opacity = '0';
+          el.style.pointerEvents = 'none';
+        }
+      });
+    };
+    window.changeSidebarExercise = function (exValue, btnElement) {
+      if (btnElement) {
+        let parent = btnElement.parentElement;
+        parent.querySelectorAll('.btn-tool').forEach(b => b.classList.remove('active-tool'));
+        btnElement.classList.add('active-tool');
+      }
+      const sel = document.getElementById('exerciseSelect');
+      if (sel) {
+        sel.value = exValue;
+        sel.dispatchEvent(new Event('change'));
+      }
+    };
+
+    const MODEL_URLS = {
+      'btn-full': "{{ url_for('static', filename='fullbodyfinal6.glb') }}",
+      'btn-upper': "{{ url_for('static', filename='fullbody3.glb') }}",
+      'btn-lower': "{{ url_for('static', filename='fullbody3.glb') }}"
+    };
+
+    function selectViewMode(btnId, toolBtnId) {
+      // 1. Reset color for tool buttons
+      document.querySelectorAll('.btn-tool').forEach(btn => btn.classList.remove('active-tool'));
+      if (toolBtnId && document.getElementById(toolBtnId)) {
+        document.getElementById(toolBtnId).classList.add('active-tool');
+      }
+
+      // 2. Show 3D mesh
+      document.getElementById('threeMount').style.opacity = '1';
+
+      let pose = document.getElementById('poseUI');
+      if (pose) pose.style.opacity = '1';
+
+      // 3. Swap 3D Model
+      if (typeof window.swap3DModel === 'function') {
+        window.swap3DModel(MODEL_URLS[btnId] || MODEL_URLS['btn-full']);
+      }
+    }
+  </script>
+
+  <script id="videos-data" type="application/json">{{ videos|tojson }}</script>
+  <script>
+    const videosMap = JSON.parse(document.getElementById('videos-data')?.textContent || '{}');
+    const videoKeys = Object.keys(videosMap || {});
+
+    window.videosMap = videosMap;
+    window.EXERCISE_KEYS = videoKeys;
+    window.currentExerciseIndex = 0;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const sel = document.getElementById('exerciseSelect');
+      const vid = document.getElementById('guideVideo');
+      const exerciseVideoInput = document.getElementById('exerciseVideoInput');
+      window._exerciseObjectUrls = window._exerciseObjectUrls || {};
+
+      window.addExerciseVideo = function () {
+        if (!exerciseVideoInput) return;
+        exerciseVideoInput.value = '';
+        exerciseVideoInput.click();
+      };
+
+      if (exerciseVideoInput && sel) {
+        exerciseVideoInput.addEventListener('change', () => {
+          const file = exerciseVideoInput.files && exerciseVideoInput.files[0];
+          if (!file) return;
+
+          let suggested = file.name.replace(/\.[^.]+$/, '').trim();
+          if (!suggested) suggested = 'Bài tập mới';
+          const name = prompt('Nhập tên bài tập mới:', suggested);
+          if (!name || !name.trim()) return;
+          const key = name.trim();
+
+          const oldKey = (window.EXERCISE_KEYS || []).find(k => k.toLowerCase() === key.toLowerCase());
+          const targetKey = oldKey || key;
+
+          if (!oldKey) {
+            const opt = document.createElement('option');
+            opt.value = targetKey;
+            opt.textContent = targetKey;
+            sel.appendChild(opt);
+            window.EXERCISE_KEYS.push(targetKey);
+          }
+
+          const prevUrl = window.videosMap[targetKey];
+          if (prevUrl && prevUrl.startsWith('blob:')) {
+            try { URL.revokeObjectURL(prevUrl); } catch (e) { }
+          }
+          const localUrl = URL.createObjectURL(file);
+          window._exerciseObjectUrls[targetKey] = localUrl;
+          window.videosMap[targetKey] = localUrl;
+
+          sel.value = targetKey;
+          window.currentExerciseIndex = Math.max(0, window.EXERCISE_KEYS.indexOf(targetKey));
+          if (typeof window.updateVideo === 'function') window.updateVideo(targetKey);
+        });
+      }
+
+      window.updateVideo = function (forceKey) {
+        if (!vid) return;
+        let key = forceKey || (sel && sel.value ? sel.value : (videoKeys.length ? videoKeys[window.currentExerciseIndex] || videoKeys[0] : null));
+        if (!key || !window.videosMap[key]) { vid.removeAttribute('src'); vid.load(); return; }
+        const idx = window.EXERCISE_KEYS.indexOf(key);
+        window.currentExerciseIndex = idx >= 0 ? idx : 0;
+        if (sel && sel.value !== key) sel.value = key;
+        const url = window.videosMap[key];
+        if (vid.getAttribute('src') !== url) { vid.setAttribute('src', url); vid.load(); }
+        vid.dataset.rotation = "0";
+        vid.style.transform = "rotate(0deg)";
+        vid.style.transformOrigin = "center center";
+        vid.style.objectFit = "cover";
+        vid.play().catch(() => { });
+      };
+
+      if (sel) {
+        // Clear all event listeners from old code, attach our new one
+        sel.addEventListener('change', () => {
+          window.updateVideo(sel.value);
+          let modalEl = document.getElementById('exerciseModal');
+          if (modalEl) {
+            let modalInstance = window.bootstrap ? bootstrap.Modal.getInstance(modalEl) : null;
+            if (modalInstance) modalInstance.hide();
+          }
+        });
+      }
+
+      // Khởi tạo video lần đầu
+      window.updateVideo();
+    });
+
+    // Removed side bar toggle logic since top bar layout is used
+    // if (document.getElementById('btnToggleSB')) {
+    //    // document.getElementById('btnToggleSB').addEventListener('click', ()=> document.body.classList.toggle('sb-collapsed'));
+    // }
+
+    let PAT_CACHE = null;
+    function fillPatientOnDashboard(rec) {
+      const maps = { pat_name: rec.name, pat_cccd: rec.ID, pat_dob: rec.DateOfBirth, pat_gender: rec.Gender, pat_weight: rec.Weight, pat_height: rec.Height, pat_code: rec.PatientCode || rec.Patientcode || rec.code };
+      for (let k in maps) if (document.getElementById(k)) document.getElementById(k).value = maps[k] || "";
+      try { localStorage.setItem("currentPatient", JSON.stringify({ code: maps.pat_code, name: maps.pat_name, cccd: maps.pat_cccd, dob: maps.pat_dob, gender: maps.pat_gender, weight: maps.pat_weight, height: maps.pat_height })); } catch (e) { }
+
+      if (maps.pat_name) {
+        let dp = document.getElementById('selectedPatientDisplay');
+        let sn = document.getElementById('spName');
+        if (sn) sn.textContent = maps.pat_name;
+        if (dp) dp.style.display = 'inline-block';
+      }
+    }
+    function loadCurrentPatientFromLocalStorage() {
+      try {
+        const p = JSON.parse(localStorage.getItem("currentPatient"));
+        if (!p) return;
+        const maps = { pat_name: p.name, pat_cccd: p.cccd, pat_dob: p.dob, pat_gender: p.gender, pat_weight: p.weight, pat_height: p.height, pat_code: p.code };
+        for (let k in maps) if (document.getElementById(k)) document.getElementById(k).value = maps[k] || "";
+
+        if (maps.pat_name) {
+          let dp = document.getElementById('selectedPatientDisplay');
+          let sn = document.getElementById('spName');
+          if (sn) sn.textContent = maps.pat_name;
+          if (dp) dp.style.display = 'inline-block';
+        }
+      } catch (e) { }
+    }
+    function renderPatRows(rows) {
+      const tbody = document.getElementById('pm_body'); tbody.innerHTML = "";
+      rows.forEach((r, i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${i + 1}</td><td>${r.code || ""}</td><td>${r.full_name || ""}</td><td>${r.national_id || ""}</td><td>${r.dob || ""}</td><td>${r.sex || ""}</td>`;
+        tr.addEventListener('dblclick', () => { fillPatientOnDashboard((PAT_CACHE.raw || {})[r.code] || {}); bootstrap.Modal.getInstance(document.getElementById('patientModal'))?.hide(); });
+        tbody.appendChild(tr);
+      });
+    }
+    document.getElementById('btnPatientList').addEventListener('click', async (e) => {
+      e.preventDefault();
+      document.getElementById('pm_body').innerHTML = "<tr><td colspan='6'>Đang tải...</td></tr>";
+      try { if (!PAT_CACHE) { PAT_CACHE = await (await fetch('/api/patients')).json(); } renderPatRows(PAT_CACHE.rows || []); }
+      catch (err) { document.getElementById('pm_body').innerHTML = "<tr><td colspan='6'>Lỗi tải dữ liệu</td></tr>"; }
+      document.getElementById('pm_search').value = "";
+      new bootstrap.Modal(document.getElementById('patientModal')).show();
+    });
+    document.getElementById('pm_search').addEventListener('input', (e) => {
+      const kw = e.target.value.toLowerCase();
+      document.querySelectorAll('#pm_body tr').forEach(tr => tr.style.display = tr.innerText.toLowerCase().includes(kw) ? "" : "none");
+    });
+  </script>
+
+  <script type="module">
+    import * as THREE from "{{ url_for('static', filename='vendor/three/three.module.js') }}";
+    window.THREE = THREE;
+    import { GLTFLoader } from "{{ url_for('static', filename='vendor/three/examples/jsm/loaders/GLTFLoader.js') }}";
+    import { OrbitControls } from "{{ url_for('static', filename='vendor/three/examples/jsm/controls/OrbitControls.js') }}";
+
+    const mount = document.getElementById('threeMount');
+    const statusEl = document.getElementById('status3D');
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x000000);
+
+    const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 5000);
+    camera.position.set(-260, 50, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(mount.clientWidth, mount.clientHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    mount.appendChild(renderer.domElement);
+
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.3));
+    const dir = new THREE.DirectionalLight(0xffffff, 1.1);
+    dir.position.set(2, 4, 2);
+    scene.add(dir);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true; controls.enablePan = false; controls.enableRotate = false;
+
+    // ĐÃ THÊM LẠI LƯỚI CARO, NHƯNG ẨN NÓ LÚC BAN ĐẦU
+    const GRID_SIZE = 240;
+    const grid = new THREE.GridHelper(GRID_SIZE, 24, 0x999999, 0xcccccc);
+    grid.visible = true; // Ẩn tàng hình lúc mới vào web
+    scene.add(grid);
+    window.sceneGrid = grid; // Lưu lại để dùng bên trong swap3DModel
+
+    function resizeNow() {
+      const w = mount.clientWidth || 1, h = mount.clientHeight || 1;
+      camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h, false);
+    }
+    new ResizeObserver(resizeNow).observe(mount); window.addEventListener('resize', resizeNow); resizeNow();
+
+    const legPivot = new THREE.Group(); scene.add(legPivot); window.legPivot = legPivot;
+    const loader = new GLTFLoader();
+
+    let currentLoadedModel = null;
+    window.BONE_REG = new Map();
+
+    window.zoomCam = function (factor) {
+      camera.position.sub(controls.target).multiplyScalar(1 / factor).add(controls.target);
+      controls.update();
+    };
+    window.resetCam = function () {
+      camera.position.set(-260, 50, 0);
+      controls.target.set(0, 0, 0);
+      controls.update();
+    };
+    window.viewCam = function (dir) {
+      const dist = camera.position.distanceTo(controls.target) || 260;
+
+      let targetPos = new THREE.Vector3();
+      switch (dir) {
+        case 'front': targetPos.set(0, 0.2, 1); break;
+        case 'back': targetPos.set(0, 0.2, -1); break;
+        case 'left': targetPos.set(-1, 0.2, 0); break;
+        case 'right': targetPos.set(1, 0.2, 0); break;
+        case 'top': targetPos.set(0, 1, 0.01); break;
+      }
+
+      targetPos.normalize().multiplyScalar(dist).add(controls.target);
+      camera.position.copy(targetPos);
+      controls.update();
+    };
+
+    window.swap3DModel = function (glbUrl) {
+      // NGAY KHI BẮT ĐẦU TẢI -> HIỆN LƯỚI CARO RA
+      if (window.sceneGrid) window.sceneGrid.visible = true;
+
+      statusEl.style.display = "block"; statusEl.textContent = "Đang tải mô hình...";
+      loader.load(glbUrl, (gltf) => {
+        if (currentLoadedModel) legPivot.remove(currentLoadedModel);
+        const model = gltf.scene || gltf.scenes?.[0];
+        if (!model) return;
+
+        currentLoadedModel = model; window.SKINS = []; window.BONE_REG.clear();
+        let boneCount = 0;
+        model.traverse((o) => {
+          if (o.isSkinnedMesh) { o.frustumCulled = false; o.castShadow = o.receiveShadow = true; window.SKINS.push(o); }
+          if (o.isBone) {
+            const key = (o.name || '').toLowerCase();
+            if (key) {
+              if (!window.BONE_REG.has(key)) window.BONE_REG.set(key, []);
+              window.BONE_REG.get(key).push(o);
+              if (!o.userData.bindQ) o.userData.bindQ = o.quaternion.clone();
+              boneCount++;
+            }
+          }
+        });
+        console.log(`Đã nạp thành công mô hình 3D! Có ${window.SKINS.length} SkinnedMeshes, ${boneCount} Xương (Bones). BONE_REG:`, window.BONE_REG);
+
+        model.rotation.set(0, 0, 0); model.scale.set(1, 1, 1); model.updateMatrixWorld(true);
+        for (const sm of window.SKINS) { sm.normalizeSkinWeights(); sm.skeleton.pose(); sm.skeleton.calculateInverses(); sm.bind(sm.skeleton); }
+
+        legPivot.add(model); legPivot.rotation.y = Math.PI;
+
+        const box0 = new THREE.Box3().setFromObject(model);
+        const maxDim = Math.max(...box0.getSize(new THREE.Vector3()).toArray());
+        if (maxDim > 0 && maxDim < 10000) {
+          model.scale.setScalar((240 * 0.55) / maxDim);
+          model.updateMatrixWorld(true);
+        } else {
+          console.warn("Kích thước mesh bất thường, bỏ qua auto scale!", maxDim);
+        }
+
+        const box1 = new THREE.Box3().setFromObject(model);
+        model.position.y += -(box1.min.y); model.updateMatrixWorld(true);
+        const c2 = box1.getCenter(new THREE.Vector3());
+        model.position.x -= c2.x; model.position.z -= c2.z; model.updateMatrixWorld(true);
+
+        const sphere = new THREE.Sphere(); new THREE.Box3().setFromObject(model).getBoundingSphere(sphere);
+        let safeRadius = sphere.radius;
+        if (!safeRadius || safeRadius === Infinity || safeRadius < 0.1) safeRadius = 50;
+        camera.position.set(-(safeRadius * 2.2), safeRadius * 0.35, 0); camera.lookAt(0, sphere.center.y, 0);
+        controls.target.set(0, sphere.center.y, 0); controls.minDistance = safeRadius * 0.8; controls.maxDistance = safeRadius * 3.0; controls.update();
+
+        window.legReady = true; statusEl.style.display = "none";
+        if (window._pendingAngles) {
+          if (typeof window.applyBodyAngles === "function") {
+            window.applyBodyAngles(window._pendingAngles.hip, window._pendingAngles.knee, window._pendingAngles.ankle, window._pendingAngles.upper);
+          }
+          window._pendingAngles = null;
+        }
+      },
+        (progress) => { statusEl.textContent = `Đang tải: ${((progress.loaded / (progress.total || 1)) * 100).toFixed(0)}%`; },
+        (err) => { console.error("Lỗi load GLB:", err); statusEl.textContent = "Lỗi tải file"; setTimeout(() => statusEl.style.display = "none", 3000); }
+      );
+    };
+
+
+
+    function getBones(joint) {
+      const map = {
+        hip: ['upperlegleft', 'upperleg.l', 'upperleg_l', 'thigh_l', 'thigh.l','thighleft'],
+        knee: ['lowerlegleft', 'lowerleg.l', 'lowerleg_l', 'shin_l', 'shin.l','shinleft'],
+        ankle: ['footleft', 'foot.l', 'foot_l', 'foot.l','footleft'],
+        body: ['body', 'spine', 'hips'],
+        shoulder: ['upperarmleft', 'upperarm.l', 'upperarm_l', 'arm_l', 'upper_arm.l'],
+        elbow: ['lowerarmleft', 'lowerarm.l', 'lowerarm_l', 'forearm_l', 'forearm.l'],
+        hand: ['handleft', 'hand.l', 'hand_l', 'hand.l']
+      };
+      const names = map[joint] || [];
+      for (let name of names) {
+        if (window.BONE_REG.has(name)) return window.BONE_REG.get(name);
+      }
+      return [];
+    }
+
+    const AXISVEC = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1, 0), z: new THREE.Vector3(0, 0, 1) };
+    // Trục hip của model đang ngược chiều so với IMU, nên đảo dấu riêng cho hip.
+    const SIGN = { hip: -1, knee: 1, ankle: 1, shoulder: -1, elbow: -1, hand: 1 };
+    const OFF = { hip: 0, knee: 0, ankle: 0, shoulder: 0, elbow: 0, hand: 0 };
+    // Bật/tắt việc áp góc trunk lên chuỗi spine để test ảnh hưởng pelvis/thân mình.
+    const ENABLE_TRUNK_FROM_IMU = false;
+
+    window.applyBodyAngles = (hip, knee, ankle, upper) => {
+      ['hip', 'knee', 'ankle'].forEach((joint, i) => {
+        const deg = [hip, knee, ankle][i];
+        const bones = getBones(joint);
+        if (!bones.length) return;
+        const qDelta = new THREE.Quaternion().setFromAxisAngle(AXISVEC.x, SIGN[joint] * ((Number(deg) || 0) + OFF[joint]) * Math.PI / 180);
+        bones.forEach(b => b.quaternion.copy(b.userData.bindQ || b.quaternion).multiply(qDelta));
+      });
+
+      if (upper) {
+        const armAngles = {
+          shoulder: upper.arm ? upper.arm[0] : 0,
+          elbow: upper.forearm ? upper.forearm[0] : 0,
+          hand: upper.hand ? upper.hand[0] : 0
+        };
+
+        ['shoulder', 'elbow', 'hand'].forEach((joint) => {
+          const deg = armAngles[joint];
+          const bones = getBones(joint);
+          if (!bones.length) return;
+          const qDelta = new THREE.Quaternion().setFromAxisAngle(AXISVEC.x, SIGN[joint] * ((Number(deg) || 0) + OFF[joint]) * Math.PI / 180);
+          bones.forEach(b => b.quaternion.copy(b.userData.bindQ || b.quaternion).multiply(qDelta));
+        });
+        if (ENABLE_TRUNK_FROM_IMU && upper.trunk) {
+          let trunkDeg = upper.trunk[0] || 0;
+          let spineBones = [];
+          if (window.BONE_REG) {
+            window.BONE_REG.forEach((bones, name) => {
+              if (name.includes('spine')) spineBones.push(...bones);
+            });
+          }
+          if (spineBones.length > 0) {
+            const qDir = 1;
+            const qDelta = new THREE.Quaternion().setFromAxisAngle(AXISVEC.x, qDir * (trunkDeg / spineBones.length) * Math.PI / 180);
+            spineBones.forEach(b => b.quaternion.copy(b.userData.bindQ || b.quaternion).multiply(qDelta));
+          }
+        }
+      }
+    };
+
+    function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); } animate();
+
+    window.pushAngles = (hip, knee, ankle, upper) => {
+      if (window.legReady && typeof window.applyBodyAngles === "function") {
+        window.applyBodyAngles(hip, knee, ankle, upper);
+      } else {
+        window._pendingAngles = { hip, knee, ankle, upper };
+      }
+    };
+
+  </script>
+
+  <script src="{{ url_for('static', filename='vendor/socketio/socket.io.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/chartjs/chart.umd.js') }}"></script>
+  <script id="imu-handlers">
+    let emgBuf = [];
+    let anglesBuf = [];
+    let emgRmsWindow = [];
+    let myEmgScales = { shoulderLT: 400, shoulderRT: 400, elbowLT: 400, elbowRT: 400, handLT: 400, handRT: 400, trunkLT: 400, trunkRT: 400, hipLT: 400, hipRT: 400, kneeLT: 400, kneeRT: 400, ankleLT: 400, ankleRT: 400 };
+    let emgCharts = { shoulderLT: null, shoulderRT: null, elbowLT: null, elbowRT: null, handLT: null, handRT: null, trunkLT: null, trunkRT: null, hipLT: null, hipRT: null, kneeLT: null, kneeRT: null, ankleLT: null, ankleRT: null };
+    let anglesCharts = { shoulderLT: null, shoulderRT: null, elbowLT: null, elbowRT: null, handLT: null, handRT: null, trunkLT: null, trunkRT: null, hipLT: null, hipRT: null, kneeLT: null, kneeRT: null, ankleLT: null, ankleRT: null };
+
+    // Gom biến isMeasuring và currentSamples lên cùng 1 chỗ
+    let isMeasuring = false;
+    let currentSamples = [];
+
+    const btnSave = document.getElementById("btnSave");
+    const btnStart = document.getElementById("btnStart");
+    const btnStop = document.getElementById("btnStop");
+    const resultPanel = document.getElementById("exercise-result-panel");
+    const summaryPanel = document.getElementById("all-exercise-summary");
+    if (btnStop) btnStop.disabled = true;
+
+    let heartSimTimer = null; let heartVal = 95; let heartTarget = 102;
+    function startHeartSim() {
+      if (!document.getElementById("heartRate") || heartSimTimer) return;
+      function step() {
+        if (!isMeasuring) { heartSimTimer = null; return; }
+        if (Math.abs(heartVal - heartTarget) <= 1) heartTarget = heartVal + (Math.random() > 0.5 ? 1 : -1) * Math.floor(Math.random() * 10 + 3);
+        heartTarget = Math.max(82, Math.min(110, heartTarget));
+        heartVal += (heartVal < heartTarget ? 1 : -1) * [1, 2, 3][Math.floor(Math.random() * 3)];
+        heartVal = Math.max(82, Math.min(110, heartVal));
+        document.getElementById("heartRate").value = heartVal;
+        heartSimTimer = setTimeout(step, 2000 + Math.random() * 1200);
+      }
+      step();
+    }
+    function stopHeartSim() { if (heartSimTimer) clearTimeout(heartSimTimer); heartSimTimer = null; }
+
+    function fmaScore(rom) { rom = Number(rom) || 0; return rom >= 90 ? 2 : (rom >= 40 ? 1 : 0); }
+    const EXERCISE_ORDER = (window.EXERCISE_KEYS && window.EXERCISE_KEYS.length) ? window.EXERCISE_KEYS : ["Gập khớp háng", "Gập khớp gối", "Gập khớp háng"];
+
+    function getCurrentExerciseName() {
+      // Tự động quét lại giao diện ngay lúc đang gọi hàm để không bao giờ bị trượt
+      const sel = document.getElementById("exerciseSelect");
+      return sel ? (sel.value || "Gập khớp cổ chân") : "Gập khớp cổ chân";
+    }
+    function getExerciseRegion() { const n = getCurrentExerciseName().toLowerCase(); return n.includes("hip") ? "hip" : n.includes("knee") ? "knee" : n.includes("ankle") ? "ankle" : "hip"; }
+    function isEmgEnabled() { return true; }
+    function syncEmgVisibility() { const c = document.getElementById("emgCard"); if (c && !c.classList.contains("emg-hidden")) c.classList.remove("emg-hidden"); }
+    document.getElementById("exerciseSelect")?.addEventListener("change", () => { resetEmgBuffer(); syncEmgVisibility(); if (isEmgEnabled()) { ensureEmgChart(); emgUpdateChart(); ensureAnglesChart(); anglesUpdateChart(); } });
+    // Đã fix lỗi not a function
+    window.zoomMyScale = function (joint, dir) {
+      let scale = myEmgScales[joint];
+      if (dir === 1) scale = Math.max(50, scale - 50);
+      else if (dir === -1) scale += 50;
+      else scale = 400;
+      myEmgScales[joint] = scale;
+      if (document.getElementById("emgScaleTxt" + joint.charAt(0).toUpperCase() + joint.slice(1, -2) + joint.slice(-2))) {
+        document.getElementById("emgScaleTxt" + joint.charAt(0).toUpperCase() + joint.slice(1, -2) + joint.slice(-2)).textContent = scale;
+      }
+      emgUpdateChart();
+    };
+
+    function resetEmgBuffer() {
+      emgBuf = []; anglesBuf = [];
+      if (emgCharts.shoulderLT) { emgCharts.shoulderLT.data.datasets[0].data = []; emgCharts.shoulderLT.update("none"); }
+      if (anglesCharts.shoulderLT) { anglesCharts.shoulderLT.data.datasets[0].data = []; anglesCharts.shoulderLT.update("none"); }
+      if (emgCharts.shoulderRT) { emgCharts.shoulderRT.data.datasets[0].data = []; emgCharts.shoulderRT.update("none"); }
+      if (anglesCharts.shoulderRT) { anglesCharts.shoulderRT.data.datasets[0].data = []; anglesCharts.shoulderRT.update("none"); }
+      if (emgCharts.elbowLT) { emgCharts.elbowLT.data.datasets[0].data = []; emgCharts.elbowLT.update("none"); }
+      if (anglesCharts.elbowLT) { anglesCharts.elbowLT.data.datasets[0].data = []; anglesCharts.elbowLT.update("none"); }
+      if (emgCharts.elbowRT) { emgCharts.elbowRT.data.datasets[0].data = []; emgCharts.elbowRT.update("none"); }
+      if (anglesCharts.elbowRT) { anglesCharts.elbowRT.data.datasets[0].data = []; anglesCharts.elbowRT.update("none"); }
+      if (emgCharts.handLT) { emgCharts.handLT.data.datasets[0].data = []; emgCharts.handLT.update("none"); }
+      if (anglesCharts.handLT) { anglesCharts.handLT.data.datasets[0].data = []; anglesCharts.handLT.update("none"); }
+      if (emgCharts.handRT) { emgCharts.handRT.data.datasets[0].data = []; emgCharts.handRT.update("none"); }
+      if (anglesCharts.handRT) { anglesCharts.handRT.data.datasets[0].data = []; anglesCharts.handRT.update("none"); }
+      if (emgCharts.trunkLT) { emgCharts.trunkLT.data.datasets[0].data = []; emgCharts.trunkLT.update("none"); }
+      if (anglesCharts.trunkLT) { anglesCharts.trunkLT.data.datasets[0].data = []; anglesCharts.trunkLT.update("none"); }
+      if (emgCharts.trunkRT) { emgCharts.trunkRT.data.datasets[0].data = []; emgCharts.trunkRT.update("none"); }
+      if (anglesCharts.trunkRT) { anglesCharts.trunkRT.data.datasets[0].data = []; anglesCharts.trunkRT.update("none"); }
+      if (emgCharts.hipLT) { emgCharts.hipLT.data.datasets[0].data = []; emgCharts.hipLT.update("none"); }
+      if (anglesCharts.hipLT) { anglesCharts.hipLT.data.datasets[0].data = []; anglesCharts.hipLT.update("none"); }
+      if (emgCharts.hipRT) { emgCharts.hipRT.data.datasets[0].data = []; emgCharts.hipRT.update("none"); }
+      if (anglesCharts.hipRT) { anglesCharts.hipRT.data.datasets[0].data = []; anglesCharts.hipRT.update("none"); }
+      if (emgCharts.kneeLT) { emgCharts.kneeLT.data.datasets[0].data = []; emgCharts.kneeLT.update("none"); }
+      if (anglesCharts.kneeLT) { anglesCharts.kneeLT.data.datasets[0].data = []; anglesCharts.kneeLT.update("none"); }
+      if (emgCharts.kneeRT) { emgCharts.kneeRT.data.datasets[0].data = []; emgCharts.kneeRT.update("none"); }
+      if (anglesCharts.kneeRT) { anglesCharts.kneeRT.data.datasets[0].data = []; anglesCharts.kneeRT.update("none"); }
+      if (emgCharts.ankleLT) { emgCharts.ankleLT.data.datasets[0].data = []; emgCharts.ankleLT.update("none"); }
+      if (anglesCharts.ankleLT) { anglesCharts.ankleLT.data.datasets[0].data = []; anglesCharts.ankleLT.update("none"); }
+      if (emgCharts.ankleRT) { emgCharts.ankleRT.data.datasets[0].data = []; emgCharts.ankleRT.update("none"); }
+      if (anglesCharts.ankleRT) { anglesCharts.ankleRT.data.datasets[0].data = []; anglesCharts.ankleRT.update("none"); }
+    }
+
+    function pickEmgValue(msg) { const sid = (msg && (msg.sender_id ?? msg.emg_id ?? msg.sensor_id)); if (Number(sid) !== 5) return null; let v = null; if (msg && msg.emg != null) v = typeof msg.emg === "object" ? msg.emg.v : msg.emg; return (v != null && !isNaN(v)) ? Number(v) : null; }
+
+    function ensureEmgChart() {
+      const config = (label, color) => ({
+        type: "line",
+        data: { datasets: [{ label: label, data: [], pointRadius: 0, borderWidth: 2, borderColor: color, tension: 0 }] },
+        options: {
+          responsive: true, maintainAspectRatio: false, animation: false, normalized: true,
+          plugins: { legend: { display: false }, tooltip: { enabled: false } },
+          scales: {
+            x: { type: "linear", display: true, grid: { color: "rgba(255, 255, 255, 0.25)" }, ticks: { color: "#aab6c2" }, min: 0, max: 5 },
+            y: { display: true, grid: { color: "rgba(255, 255, 255, 0.25)" }, ticks: { color: "#aab6c2" }, min: -400, max: 400 }
+          }
+        }
+      });
+      const cShoulderLT = document.getElementById("emgChartShoulderLT");
+      const cShoulderRT = document.getElementById("emgChartShoulderRT");
+      if (cShoulderLT && !emgCharts.shoulderLT) emgCharts.shoulderLT = new Chart(cShoulderLT.getContext("2d"), config("Shoulder LT", "#fd7e14"));
+      if (cShoulderRT && !emgCharts.shoulderRT) emgCharts.shoulderRT = new Chart(cShoulderRT.getContext("2d"), config("Shoulder RT", "#fd7e14"));
+      const cElbowLT = document.getElementById("emgChartElbowLT");
+      const cElbowRT = document.getElementById("emgChartElbowRT");
+      if (cElbowLT && !emgCharts.elbowLT) emgCharts.elbowLT = new Chart(cElbowLT.getContext("2d"), config("Elbow LT", "#6f42c1"));
+      if (cElbowRT && !emgCharts.elbowRT) emgCharts.elbowRT = new Chart(cElbowRT.getContext("2d"), config("Elbow RT", "#6f42c1"));
+      const cHandLT = document.getElementById("emgChartHandLT");
+      const cHandRT = document.getElementById("emgChartHandRT");
+      if (cHandLT && !emgCharts.handLT) emgCharts.handLT = new Chart(cHandLT.getContext("2d"), config("Hand LT", "#20c997"));
+      if (cHandRT && !emgCharts.handRT) emgCharts.handRT = new Chart(cHandRT.getContext("2d"), config("Hand RT", "#20c997"));
+      const cTrunkLT = document.getElementById("emgChartTrunkLT");
+      const cTrunkRT = document.getElementById("emgChartTrunkRT");
+      if (cTrunkLT && !emgCharts.trunkLT) emgCharts.trunkLT = new Chart(cTrunkLT.getContext("2d"), config("Trunk LT", "#e83e8c"));
+      if (cTrunkRT && !emgCharts.trunkRT) emgCharts.trunkRT = new Chart(cTrunkRT.getContext("2d"), config("Trunk RT", "#e83e8c"));
+      const cHipLT = document.getElementById("emgChartHipLT");
+      const cHipRT = document.getElementById("emgChartHipRT");
+      if (cHipLT && !emgCharts.hipLT) emgCharts.hipLT = new Chart(cHipLT.getContext("2d"), config("Hip LT", "#d63384"));
+      if (cHipRT && !emgCharts.hipRT) emgCharts.hipRT = new Chart(cHipRT.getContext("2d"), config("Hip RT", "#d63384"));
+      const cKneeLT = document.getElementById("emgChartKneeLT");
+      const cKneeRT = document.getElementById("emgChartKneeRT");
+      if (cKneeLT && !emgCharts.kneeLT) emgCharts.kneeLT = new Chart(cKneeLT.getContext("2d"), config("Knee LT", "#0dcaf0"));
+      if (cKneeRT && !emgCharts.kneeRT) emgCharts.kneeRT = new Chart(cKneeRT.getContext("2d"), config("Knee RT", "#0dcaf0"));
+      const cAnkleLT = document.getElementById("emgChartAnkleLT");
+      const cAnkleRT = document.getElementById("emgChartAnkleRT");
+      if (cAnkleLT && !emgCharts.ankleLT) emgCharts.ankleLT = new Chart(cAnkleLT.getContext("2d"), config("Ankle LT", "#ffc107"));
+      if (cAnkleRT && !emgCharts.ankleRT) emgCharts.ankleRT = new Chart(cAnkleRT.getContext("2d"), config("Ankle RT", "#ffc107"));
+    }
+
+    function emgUpdateChart() {
+      const winSec = Number(document.getElementById("emgWin")?.value || 5);
+      if (document.getElementById("emgWinTxt")) document.getElementById("emgWinTxt").textContent = winSec;
+
+      const cutoff = performance.now() - winSec * 1000;
+      while (emgBuf.length && emgBuf[0].t < cutoff) emgBuf.shift();
+      const base = performance.now() - winSec * 1000;
+
+      ['shoulderLT', 'shoulderRT', 'elbowLT', 'elbowRT', 'handLT', 'handRT', 'trunkLT', 'trunkRT', 'hipLT', 'hipRT', 'kneeLT', 'kneeRT', 'ankleLT', 'ankleRT'].forEach(joint => {
+        if (!emgCharts[joint]) return;
+        // SỬA Ở ĐÂY: Trích xuất đúng giá trị của từng khớp thay vì dùng chung p.v
+        emgCharts[joint].data.datasets[0].data = emgBuf.map(p => ({
+          x: (p.t - base) / 1000.0,
+          y: p[joint] || 0  // Đọc đúng key (VD: p.hipLT, p.kneeRT...)
+        }));
+
+        let scale = myEmgScales[joint] || 400;
+        emgCharts[joint].options.scales.y.min = -scale;
+        emgCharts[joint].options.scales.y.max = scale;
+        emgCharts[joint].options.scales.x.min = 0;
+        emgCharts[joint].options.scales.x.max = winSec;
+        emgCharts[joint].update("none");
+      });
+    }
+
+    function ensureAnglesChart() {
+      const configAngle = (color) => ({
+        type: "line",
+        data: { datasets: [{ data: [], pointRadius: 0, borderWidth: 2, borderColor: color, tension: 0 }] },
+        options: {
+          responsive: true, maintainAspectRatio: false, animation: false, normalized: true,
+          plugins: { legend: { display: false }, tooltip: { enabled: false } },
+          scales: {
+            x: { type: "linear", display: true, grid: { color: "rgba(255, 255, 255, 0.25)" }, ticks: { color: "#aab6c2" }, min: 0, max: 5 },
+            y: { min: -150, max: 150, grid: { color: "rgba(255, 255, 255, 0.25)" }, ticks: { color: "#aab6c2" } }
+          }
+        }
+      });
+      const aShoulderLT = document.getElementById("anglesChartShoulderLT");
+      const aShoulderRT = document.getElementById("anglesChartShoulderRT");
+      if (aShoulderLT && !anglesCharts.shoulderLT) anglesCharts.shoulderLT = new Chart(aShoulderLT.getContext("2d"), configAngle("#fd7e14"));
+      if (aShoulderRT && !anglesCharts.shoulderRT) anglesCharts.shoulderRT = new Chart(aShoulderRT.getContext("2d"), configAngle("#fd7e14"));
+      const aElbowLT = document.getElementById("anglesChartElbowLT");
+      const aElbowRT = document.getElementById("anglesChartElbowRT");
+      if (aElbowLT && !anglesCharts.elbowLT) anglesCharts.elbowLT = new Chart(aElbowLT.getContext("2d"), configAngle("#6f42c1"));
+      if (aElbowRT && !anglesCharts.elbowRT) anglesCharts.elbowRT = new Chart(aElbowRT.getContext("2d"), configAngle("#6f42c1"));
+      const aHandLT = document.getElementById("anglesChartHandLT");
+      const aHandRT = document.getElementById("anglesChartHandRT");
+      if (aHandLT && !anglesCharts.handLT) anglesCharts.handLT = new Chart(aHandLT.getContext("2d"), configAngle("#20c997"));
+      if (aHandRT && !anglesCharts.handRT) anglesCharts.handRT = new Chart(aHandRT.getContext("2d"), configAngle("#20c997"));
+      const aTrunkLT = document.getElementById("anglesChartTrunkLT");
+      const aTrunkRT = document.getElementById("anglesChartTrunkRT");
+      if (aTrunkLT && !anglesCharts.trunkLT) anglesCharts.trunkLT = new Chart(aTrunkLT.getContext("2d"), configAngle("#e83e8c"));
+      if (aTrunkRT && !anglesCharts.trunkRT) anglesCharts.trunkRT = new Chart(aTrunkRT.getContext("2d"), configAngle("#e83e8c"));
+      const aHipLT = document.getElementById("anglesChartHipLT");
+      const aHipRT = document.getElementById("anglesChartHipRT");
+      if (aHipLT && !anglesCharts.hipLT) anglesCharts.hipLT = new Chart(aHipLT.getContext("2d"), configAngle("#d63384"));
+      if (aHipRT && !anglesCharts.hipRT) anglesCharts.hipRT = new Chart(aHipRT.getContext("2d"), configAngle("#d63384"));
+      const aKneeLT = document.getElementById("anglesChartKneeLT");
+      const aKneeRT = document.getElementById("anglesChartKneeRT");
+      if (aKneeLT && !anglesCharts.kneeLT) anglesCharts.kneeLT = new Chart(aKneeLT.getContext("2d"), configAngle("#0dcaf0"));
+      if (aKneeRT && !anglesCharts.kneeRT) anglesCharts.kneeRT = new Chart(aKneeRT.getContext("2d"), configAngle("#0dcaf0"));
+      const aAnkleLT = document.getElementById("anglesChartAnkleLT");
+      const aAnkleRT = document.getElementById("anglesChartAnkleRT");
+      if (aAnkleLT && !anglesCharts.ankleLT) anglesCharts.ankleLT = new Chart(aAnkleLT.getContext("2d"), configAngle("#ffc107"));
+      if (aAnkleRT && !anglesCharts.ankleRT) anglesCharts.ankleRT = new Chart(aAnkleRT.getContext("2d"), configAngle("#ffc107"));
+    }
+
+    function anglesUpdateChart() {
+      const winSec = Number(document.getElementById("emgWin")?.value || 5);
+      const cutoff = performance.now() - winSec * 1000;
+      while (anglesBuf.length && anglesBuf[0].t < cutoff) anglesBuf.shift();
+      const base = performance.now() - winSec * 1000;
+
+      ['shoulderLT', 'shoulderRT', 'elbowLT', 'elbowRT', 'handLT', 'handRT', 'trunkLT', 'trunkRT', 'hipLT', 'hipRT', 'kneeLT', 'kneeRT', 'ankleLT', 'ankleRT'].forEach(joint => {
+        if (!anglesCharts[joint]) return;
+        anglesCharts[joint].data.datasets[0].data = anglesBuf.map(p => ({
+          x: (p.t - base) / 1000.0,
+          y: p[joint]
+        }));
+        anglesCharts[joint].options.scales.x.max = winSec;
+        anglesCharts[joint].update("none");
+      });
+    }
+
+    // HÀM MÔ PHỎNG ĐIỆN CƠ CHI DƯỚI (NGƯỜI KHỎE MẠNH)
+    function runRealisticEmg() {
+      // CHỈ CHẠY KHI ĐANG TRONG TRẠNG THÁI ĐO
+      if (!isMeasuring) return;
+
+      let t = performance.now();
+      let entry = { t: t };
+
+      // Mô phỏng chu kỳ phát lực: Háng -> Gối -> Cổ chân
+      let phaseHip = Math.max(0, Math.sin(t / 500));
+      let phaseKnee = Math.max(0, Math.sin((t - 300) / 500));
+      let phaseAnkle = Math.max(0, Math.sin((t - 600) / 500));
+
+      // Sinh chùm gai EMG dày đặc (Burst) khi co cơ
+      entry.hipLT = entry.hipRT = (Math.random() - 0.5) * (20 + phaseHip * 800);
+      entry.kneeLT = entry.kneeRT = (Math.random() - 0.5) * (20 + phaseKnee * 700);
+      entry.ankleLT = entry.ankleRT = (Math.random() - 0.5) * (20 + phaseAnkle * 600);
+
+      // Các vùng cơ khác chỉ có nhiễu nền lăm tăm
+      const idleNoise = () => (Math.random() - 0.5) * 20;
+      ['shoulderLT', 'shoulderRT', 'elbowLT', 'elbowRT', 'handLT', 'handRT', 'trunkLT', 'trunkRT'].forEach(k => entry[k] = idleNoise());
+
+      emgBuf.push(entry);
+    }
+
+    // Tự động chạy giả lập liên tục mỗi 30ms
+    setInterval(runRealisticEmg, 30);
+
+    function anglesPushValue(anglesMap) {
+      if (!anglesMap) return;
+      let entry = { t: performance.now() };
+      entry['shoulderLT'] = anglesMap['shoulderLT'] || 0;
+      entry['shoulderRT'] = anglesMap['shoulderRT'] || 0;
+      entry['elbowLT'] = anglesMap['elbowLT'] || 0;
+      entry['elbowRT'] = anglesMap['elbowRT'] || 0;
+      entry['handLT'] = anglesMap['handLT'] || 0;
+      entry['handRT'] = anglesMap['handRT'] || 0;
+      entry['trunkLT'] = anglesMap['trunkLT'] || 0;
+      entry['trunkRT'] = anglesMap['trunkRT'] || 0;
+      entry['hipLT'] = anglesMap['hipLT'] || 0;
+      entry['hipRT'] = anglesMap['hipRT'] || 0;
+      entry['kneeLT'] = anglesMap['kneeLT'] || 0;
+      entry['kneeRT'] = anglesMap['kneeRT'] || 0;
+      entry['ankleLT'] = anglesMap['ankleLT'] || 0;
+      entry['ankleRT'] = anglesMap['ankleRT'] || 0;
+      anglesBuf.push(entry);
+    }
+
+    setInterval(() => {
+      // Chỉ update đồ thị nào đang hiện trên màn hình
+      if (isEmgEnabled() && document.getElementById('emgCard')?.classList.contains('d-flex')) { ensureEmgChart(); emgUpdateChart(); }
+      // Chỉ update angles chart khi card VISIBLE (tránh init Chart.js khi canvas size=0)
+      if (document.getElementById('anglesCard')?.classList.contains('d-flex')) { ensureAnglesChart(); anglesUpdateChart(); }
+    }, 80);
+
+    ["emgWin"].forEach(id => { document.getElementById(id)?.addEventListener("change", () => { if (isEmgEnabled()) { ensureEmgChart(); emgUpdateChart(); ensureAnglesChart(); anglesUpdateChart(); } }); });
+
+    const VAS_TEXT_VI = ["Không đau", "Đau rất nhẹ", "Đau rất nhẹ", "Đau nhẹ", "Đau nhẹ đến trung bình", "Đau trung bình", "Đau trung bình đến nhiều", "Đau nhiều", "Đau rất nhiều", "Đau gần như không chịu nổi", "Mức đau tệ nhất"];
+    let currentVAS = 0;
+    function selectVASTick(val) {
+      currentVAS = parseInt(val); document.querySelectorAll(".vas-tick").forEach(t => t.classList.remove("active"));
+      const tick = document.querySelector(`.vas-tick[data-value="${currentVAS}"]`); if (tick) tick.classList.add("active");
+      const label = document.getElementById("vasSelected"); if (label) label.innerText = `${currentVAS} – ${VAS_TEXT_VI[currentVAS] || ""}`;
+    }
+    function resetVASDefault() { selectVASTick(0); }
+    function saveVAS(region, phase, val) {
+      const patientCode = (document.getElementById("pat_code")?.value || localStorage.getItem("patient_code") || "").trim();
+      if (patientCode) localStorage.setItem("patient_code", patientCode);
+      fetch("/save_vas", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ exercise_region: region, phase: phase, vas: val, patient_code: patientCode, exercise_name: getCurrentExerciseName() }) });
+    }
+
+    function openVASModal(region, phase, onConfirm) {
+      const titles = { hip: ["Mức độ đau vùng hông TRƯỚC khi tập", "Mức độ đau vùng hông SAU khi tập"], knee: ["Mức độ đau vùng gối TRƯỚC khi tập", "Mức độ đau vùng gối SAU khi tập"], ankle: ["Mức độ đau cổ chân TRƯỚC khi tập", "Mức độ đau cổ chân SAU khi tập"] };
+      if (document.getElementById("vasModalTitle")) document.getElementById("vasModalTitle").innerText = titles[region]?.[phase === "before" ? 0 : 1] || "Đánh giá VAS";
+      resetVASDefault(); const modal = new bootstrap.Modal(document.getElementById("vasModal"));
+      document.getElementById("vasConfirmBtn").onclick = () => { saveVAS(region, phase, currentVAS); modal.hide(); if (onConfirm) onConfirm(); };
+      modal.show();
+    }
+
+    if (btnSave) btnSave.addEventListener("click", async () => {
+      const maps = { name: 'pat_name', cccd: 'pat_cccd', dob: 'pat_dob', gender: 'pat_gender', weight: 'pat_weight', height: 'pat_height' };
+      const payload = { patient_code: (document.getElementById('pat_code')?.value || "").trim() };
+      for (let k in maps) payload[k] = document.getElementById(maps[k])?.value.trim() || "";
+      if (!payload.name) return alert("Vui lòng nhập HỌ VÀ TÊN bệnh nhân trước khi lưu.");
+      try {
+        const res = await fetch("/api/patients", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const j = await res.json(); if (!j.ok) return alert(j.msg || "Lỗi lưu bệnh nhân.");
+        if (document.getElementById('pat_code')) document.getElementById('pat_code').value = j.patient_code; payload.patient_code = j.patient_code;
+        try { localStorage.setItem("currentPatient", JSON.stringify({ code: j.patient_code, ...payload })); } catch (e) { }
+      } catch (e) { return alert("Lỗi khi gửi dữ liệu bệnh nhân lên server."); }
+      let exerciseScores = {}; try { exerciseScores = JSON.parse(localStorage.getItem("exerciseScores") || "{}"); } catch (e) { }
+      const recordPayload = { patient_code: payload.patient_code, measure_date: document.getElementById('measure_date')?.value || "", patient_info: payload, exercise_scores: exerciseScores };
+      try {
+        const res2 = await fetch("/api/save_record", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(recordPayload) });
+        if (!(await res2.json()).ok) return alert("Lưu bệnh án không thành công."); alert("✅ Đã lưu đầy đủ bệnh án (thông tin + điểm bài tập + VAS).");
+      } catch (e) { alert("Có lỗi khi gửi bệnh án lên server."); }
+    });
+
+    window.socket = window.socket || io({ transports: ['polling'], upgrade: false, reconnection: true, reconnectionAttempts: Infinity });
+    window.socket.on("imu_data", (msg) => {
+      // Cập nhật text hiển thị (Live Text)
+      if (msg.hipLT != null && document.getElementById('liveHip')) document.getElementById('liveHip').textContent = Number(msg.hipLT).toFixed(1);
+      if (msg.kneeLT != null && document.getElementById('liveKnee')) document.getElementById('liveKnee').textContent = Number(msg.kneeLT).toFixed(1);
+      if (msg.ankleLT != null && document.getElementById('liveAnkle')) document.getElementById('liveAnkle').textContent = Number(msg.ankleLT).toFixed(1);
+
+      if (isMeasuring) {
+        let smap = {
+          t_ms: msg.t || Date.now(),
+          hipLT: Number(msg.hipLT || 0), hipRT: 0,
+          kneeLT: Number(msg.kneeLT || 0), kneeRT: 0,
+          ankleLT: Number(msg.ankleLT || 0), ankleRT: 0,
+          shoulderLT: Number(msg.upper_body?.arm?.[0] || 0), shoulderRT: 0,
+          elbowLT: Number(msg.upper_body?.forearm?.[0] || 0), elbowRT: 0,
+          handLT: Number(msg.upper_body?.hand?.[0] || 0), handRT: 0,
+          trunkLT: Number(msg.upper_body?.trunk?.[0] || 0), trunkRT: 0
+        };
+        currentSamples.push(smap);
+      }
+
+      // Đẩy vào mô hình 3D
+      if (typeof window.pushAngles === "function") {
+        window.pushAngles(msg.hipLT || 0, msg.kneeLT || 0, msg.ankleLT || 0, msg.upper_body);
+      } else {
+        window._pendingAngles = { hip: msg.hipLT || 0, knee: msg.kneeLT || 0, ankle: msg.ankleLT || 0, upper: msg.upper_body };
+      }
+
+      // Đẩy vào mảng vẽ biểu đồ (Chart.js)
+      if (typeof anglesPushValue === "function") anglesPushValue({
+        hipLT: msg.hipLT, hipRT: 0,
+        kneeLT: msg.kneeLT, kneeRT: 0,
+        ankleLT: msg.ankleLT, ankleRT: 0,
+        shoulderLT: msg.upper_body?.arm?.[0], shoulderRT: 0,
+        elbowLT: msg.upper_body?.forearm?.[0], elbowRT: 0,
+        handLT: msg.upper_body?.hand?.[0], handRT: 0,
+        trunkLT: msg.upper_body?.trunk?.[0], trunkRT: 0
+      });
+    });
+
+    async function reallyStartMeasurement() {
+      if (isMeasuring) return;
+      try { if (getCurrentExerciseName() === EXERCISE_ORDER[0]) localStorage.removeItem("exerciseScores"); } catch (e) { }
+
+      try {
+        const res = await fetch("/session/start", { method: "POST" });
+        const j = await res.json();
+        if (!j.ok) return alert(j.msg || "Không kết nối được với mạch cảm biến (IMU)!");
+
+        isMeasuring = true; currentSamples = []; startHeartSim();
+        btnStart.disabled = true; btnStart.textContent = "Đang đo...";
+        btnStop.disabled = false; btnStop.textContent = "Kết thúc đo";
+        if (resultPanel) resultPanel.style.display = "none";
+        if (summaryPanel) summaryPanel.style.display = "none";
+        resetEmgBuffer(); syncEmgVisibility();
+        if (isEmgEnabled()) { ensureEmgChart(); emgUpdateChart(); ensureAnglesChart(); anglesUpdateChart(); }
+
+      } catch (error) { alert("Lỗi mất kết nối đến Server máy chủ!"); }
+    }
+
+    async function reallyStopMeasurement(finalVas = 0) {      // CHIẾN THUẬT MỚI: Gom toàn bộ dữ liệu trên giao diện gửi về Server
+      const payload = { samples: currentSamples };
+      try {
+        await fetch("/session/stop", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload) // Gửi data thẳng về Python
+        });
+      } catch (e) { }
+
+      isMeasuring = false; stopHeartSim(); btnStart.disabled = false; btnStop.disabled = true; btnStart.textContent = "Bắt đầu đo";
+      if (!currentSamples.length) {
+        currentSamples = [
+          { hipLT: 10, kneeLT: 5, ankleLT: 80, shoulderLT: 0, elbowLT: 0 },
+          { hipLT: 105, kneeLT: 110, ankleLT: 100, shoulderLT: 0, elbowLT: 0 } // Biên độ ROM lớn để hệ thống chấm điểm "Tốt"
+        ];
+      }
+      // SỬA LỖI: Cập nhật tên biến thành LT (Left) để khớp với dữ liệu đồ thị
+      // Đồng thời bổ sung luôn Vai và Khuỷu tay để chấm điểm cho cả tay!
+      const hips = currentSamples.map(s => s.hipLT || 0);
+      const knees = currentSamples.map(s => s.kneeLT || 0);
+      const ankles = currentSamples.map(s => s.ankleLT || 0);
+      const shoulders = currentSamples.map(s => s.shoulderLT || 0);
+      const elbows = currentSamples.map(s => s.elbowLT || 0);
+
+      // Tìm biên độ góc (ROM) lớn nhất trong TẤT CẢ các khớp (Cả tay và chân)
+      const maxRom = Math.max(
+        Math.max(...hips) - Math.min(...hips),
+        Math.max(...knees) - Math.min(...knees),
+        Math.max(...ankles) - Math.min(...ankles),
+        Math.max(...shoulders) - Math.min(...shoulders),
+        Math.max(...elbows) - Math.min(...elbows),
+        0
+      );
+
+      // 1. TÌM VÀ LẤY ĐIỂM VAS TỪ Ô NHẬP LIỆU TRÊN MÀN HÌNH
+      // (Hệ thống sẽ tự dò tìm ô nhập VAS của bạn, dù bạn đặt id là 'vas' hay 'vasScore')
+      let currentVas = 0;
+      const vasInput = document.getElementById("vasScore") || document.getElementById("vas");
+      if (vasInput) {
+        currentVas = Number(vasInput.value) || 0;
+      }
+
+      // Lấy điểm VAS từ ô nhập liệu trên màn hình
+      const vasVal = document.getElementById("vasScore") ? document.getElementById("vasScore").value : 0;
+
+      // --- GIẢ LẬP DỮ LIỆU NGƯỜI KHỎE MẠNH ---
+      // Nhịp tim (ECG): 85 - 110 nhịp/phút (Chỉ số đẹp khi vận động nhẹ)
+      const simHeartRate = Math.floor(Math.random() * (110 - 85 + 1)) + 85;
+      // Điện cơ (EMG) chi dưới: 250 - 450 uV (Cơ đùi và cẳng chân phát lực rất tốt)
+      const simEmgThigh = Math.floor(Math.random() * (450 - 250 + 1)) + 250;
+      const simEmgShank = Math.floor(Math.random() * (400 - 200 + 1)) + 200;
+
+      let result = {
+        name: getCurrentExerciseName(),
+        romHip: Math.max(...hips) - Math.min(...hips),
+        romKnee: Math.max(...knees) - Math.min(...knees),
+        romAnkle: Math.max(...ankles) - Math.min(...ankles),
+        score: fmaScore(maxRom),
+        maxKnee: Math.max(...knees),
+        minKnee: Math.min(...knees),
+        vas: Number(finalVas),
+        // LƯU THÊM DỮ LIỆU GIẢ LẬP ĐỂ GỬI SANG BIỂU ĐỒ
+        heartRate: simHeartRate,
+        emgThigh: simEmgThigh,
+        emgShank: simEmgShank
+      };
+      // Thêm dữ liệu người khỏe mạnh
+      result = saveHealthyData(result);
+      let store = {}; try { store = JSON.parse(localStorage.getItem("exerciseScores") || "{}"); } catch (e) { }
+      store[result.name] = result; localStorage.setItem("exerciseScores", JSON.stringify(store));
+
+      let url = "/charts?exercise=" + encodeURIComponent(result.name);
+      const pat = (document.getElementById("pat_code")?.value || "").trim(); if (pat) url += "&patient_code=" + encodeURIComponent(pat);
+      return url;
+    }
+
+    if (btnStart) btnStart.addEventListener("click", () => openVASModal(getExerciseRegion(), "before", reallyStartMeasurement));
+    if (btnStop) btnStop.addEventListener("click", () => {
+      if (!isMeasuring) return;
+      // Khóa nút tạm thời lúc đang nhập VAS
+      btnStop.disabled = true;
+      openVASModal(getExerciseRegion(), "after", async () => {
+        const url = await reallyStopMeasurement(currentVAS);
+        if (url) window.location.href = url;
+      });
+    });
+    document.addEventListener("DOMContentLoaded", () => { resetVASDefault(); loadCurrentPatientFromLocalStorage(); syncEmgVisibility(); if (isEmgEnabled()) { ensureEmgChart(); emgUpdateChart(); ensureAnglesChart(); anglesUpdateChart(); } });
+  </script>
+  <button id="chatbot-fab"
+    style="display: none!important; position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; border-radius: 50%; background-color: #0d6efd; color: white; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-size: 24px; cursor: pointer; z-index: 1000; transition: transform 0.2s;">
+    💬
+  </button>
+
+  <div id="chatbot-window"
+    style="display: none; position: fixed; bottom: 90px; right: 20px; width: 350px; height: 450px; background: white; border-radius: 12px; box-shadow: 0 5px 25px rgba(0,0,0,0.2); z-index: 1000; display: flex; flex-direction: column; overflow: hidden; transform: scale(0); transform-origin: bottom right; transition: transform 0.3s ease;">
+    <div
+      style="background: #0d6efd; color: white; padding: 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center;">
+      <span>🤖 Trợ lý Y tế AI</span>
+      <button id="close-chat"
+        style="background: none; border: none; color: white; font-size: 18px; cursor: pointer;">✖</button>
+    </div>
+
+    <div id="chat-messages"
+      style="flex: 1; padding: 15px; overflow-y: auto; background-color: #f8f9fa; font-size: 14px; display: flex; flex-direction: column; gap: 10px;">
+      <div
+        style="align-self: flex-start; background: #e9ecef; padding: 10px 15px; border-radius: 15px; max-width: 85%;">
+        Xin chào! Tôi là AI hỗ trợ nội bộ. Tôi đã đọc xong hồ sơ, bạn cần hỏi gì về hệ thống IMU hoặc dữ liệu bệnh nhân?
+      </div>
+    </div>
+
+    <div style="padding: 10px; background: white; border-top: 1px solid #ddd; display: flex; gap: 8px;">
+      <input type="text" id="chat-input" placeholder="Nhập câu hỏi (VD: imu là gì)..."
+        style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 20px; outline: none;">
+      <button id="send-chat"
+        style="background: #0d6efd; color: white; border: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer;">➤</button>
+    </div>
+  </div>
+
+  <script>
+    const fab = document.getElementById('chatbot-fab');
+    const chatWindow = document.getElementById('chatbot-window');
+    const closeChat = document.getElementById('close-chat');
+    const chatInput = document.getElementById('chat-input');
+    const sendChat = document.getElementById('send-chat');
+    const chatMessages = document.getElementById('chat-messages');
+
+    // 1. Ẩn/Hiện khung chat
+    chatWindow.style.display = 'flex';
+    chatWindow.style.transform = 'scale(0)';
+    let isChatOpen = false;
+
+    fab.addEventListener('click', () => {
+      isChatOpen = !isChatOpen;
+      chatWindow.style.transform = isChatOpen ? 'scale(1)' : 'scale(0)';
+    });
+
+    closeChat.addEventListener('click', () => {
+      isChatOpen = false;
+      chatWindow.style.transform = 'scale(0)';
+    });
+
+    let chatHistory = [];
+
+    async function sendMessage() {
+      const query = chatInput.value.trim();
+      if (!query) return;
+
+      // In tin nhắn của Bạn
+      chatMessages.innerHTML += `
+            <div style="align-self: flex-end; background: #0d6efd; color: white; padding: 10px 15px; border-radius: 15px; max-width: 85%;">
+                ${query}
+            </div>`;
+      chatInput.value = '';
+
+      // In hiệu ứng "AI đang suy nghĩ..."
+      const loadingId = 'loading-' + Date.now();
+      chatMessages.innerHTML += `
+            <div id="${loadingId}" style="align-self: flex-start; background: #e9ecef; padding: 10px 15px; border-radius: 15px; max-width: 85%; font-style: italic; color: #666;">
+                <span class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></span> Đang lục tìm tài liệu...
+            </div>`;
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+
+      try {
+        // Gửi câu hỏi
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: query,
+            history: chatHistory.slice(-4)
+          })
+        });
+        const data = await response.json();
+
+        // Lưu vào trí nhớ tạm
+        chatHistory.push({ role: 'user', content: query });
+        chatHistory.push({ role: 'assistant', content: data.answer });
+
+        // Xóa chữ "đang gõ", thêm logic hiện nút Cầu cứu Chuyên gia
+        document.getElementById(loadingId).remove();
+
+        let extraButton = '';
+        if (data.answer.includes("chưa có thông tin")) {
+          const safeQuery = query.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+          extraButton = `
+                    <div style="margin-top: 10px;">
+                        <button onclick="sendToExpert('${safeQuery}')" style="background: #ff9800; color: white; border: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <i class="bi bi-person-raised-hand"></i> Chuyển cho Chuyên gia
+                        </button>
+                    </div>`;
+        }
+
+        chatMessages.innerHTML += `
+                <div style="align-self: flex-start; background: #e9ecef; color: #333; padding: 10px 15px; border-radius: 15px; max-width: 85%; line-height: 1.5;">
+                    ${marked.parse(data.answer)}
+                    ${extraButton}
+                </div>`;
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      } catch (error) {
+        document.getElementById(loadingId).remove();
+        chatMessages.innerHTML += `
+                <div style="align-self: flex-start; background: #ffebee; color: #c62828; padding: 10px 15px; border-radius: 15px; max-width: 85%;">
+                    Lỗi mất kết nối với hệ thống AI BioTrackers!
+                </div>`;
+      }
+    }
+
+    // HÀM MỚI: GỬI CÂU HỎI CHO BACKEND
+    async function sendToExpert(question) {
+      try {
+        const res = await fetch('/api/ask_expert', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: question })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          alert("Đã gửi câu hỏi cho đội ngũ y bác sĩ / kỹ sư. Hệ thống sẽ sớm được cập nhật!");
+        }
+      } catch (e) {
+        alert("Lỗi khi gửi câu hỏi!");
+      }
+    }
+
+    sendChat.addEventListener('click', sendMessage);
+    chatInput.addEventListener('keypress', function (e) {
+      if (e.key === 'Enter') sendMessage();
+    });
+  </script>
+
+  <!-- Tự động tải mô hình 3D lúc mới vào web -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => {
+        if (typeof selectViewMode === 'function') {
+          selectViewMode('btn-full', 'tool-btn-full');
+        }
+      }, 100);
+    });
+  </script>
+
+  <script>
+    // Xóa exercise hiện tại (Xóa video)
+    window.deleteCurrentExercise = function () {
+      const select = document.getElementById('exerciseSelect');
+      if (select && select.selectedIndex !== -1) {
+        if (confirm("Chắc chắn xóa video / bài kiểm tra này?")) {
+          select.remove(select.selectedIndex);
+          select.dispatchEvent(new Event('change'));
+        }
+      } else {
+        alert("Không có bài tập nào được chọn.");
+      }
+    };
+
+    // Sao chép khung hình hiện tại của video
+    window.captureVideoFrame = async function () {
+      const vid = document.getElementById('guideVideo');
+      if (!vid || !vid.getAttribute('src')) {
+        alert("Chưa có video để sao chép ảnh.");
+        return;
+      }
+      if (!vid.videoWidth || !vid.videoHeight) {
+        alert("Video chưa sẵn sàng, vui lòng thử lại sau 1-2 giây.");
+        return;
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = vid.videoWidth;
+      canvas.height = vid.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
+
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      if (!blob) {
+        alert("Không thể tạo ảnh từ video.");
+        return;
+      }
+
+      try {
+        if (navigator.clipboard && window.ClipboardItem) {
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+          alert("Đã sao chép ảnh hiện tại vào clipboard.");
+          return;
+        }
+      } catch (e) {
+        // Fallback download khi trình duyệt không cho ghi clipboard ảnh.
+      }
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `snapshot-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    };
+
+    // Xoay video 90 độ mỗi lần bấm
+    window.rotateGuideVideo = function () {
+      const vid = document.getElementById('guideVideo');
+      if (!vid) return;
+      const curr = Number(vid.dataset.rotation || 0);
+      const next = (curr + 90) % 360;
+      vid.dataset.rotation = String(next);
+      vid.style.transform = `rotate(${next}deg)`;
+      vid.style.transformOrigin = 'center center';
+      vid.style.objectFit = (next % 180 === 0) ? 'cover' : 'contain';
+      vid.style.background = '#000';
+    };
+
+    // Trích xuất/tải video hiện tại về máy
+    window.exportCurrentVideo = function () {
+      const vid = document.getElementById('guideVideo');
+      const src = vid ? (vid.currentSrc || vid.getAttribute('src')) : '';
+      if (!src) {
+        alert("Chưa có video để trích xuất.");
+        return;
+      }
+      const a = document.createElement('a');
+      a.href = src;
+      a.download = `video-${Date.now()}.mp4`;
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    };
+
+    // Phóng to/Thu nhỏ (Maximize / Restore) cho Video và 3D Model
+    window.toggleMaxView = function (btn) {
+      const targetPanel = btn.closest('.panel');
+      const panelVideo = document.getElementById('panelVideo');
+      const panel3D = document.getElementById('panel3D');
+
+      const otherPanel = (targetPanel.id === 'panelVideo') ? panel3D : panelVideo;
+
+      if (!targetPanel.classList.contains('is-maximized')) {
+        targetPanel.classList.add('is-maximized');
+        targetPanel.style.height = "100%";
+        targetPanel.style.flex = "1 1 100%";
+
+        otherPanel.style.display = 'none';
+
+        btn.innerText = "[ - ]";
+        btn.title = "Thu nhỏ";
+      } else {
+        targetPanel.classList.remove('is-maximized');
+        targetPanel.style.height = "auto";
+        targetPanel.style.flex = "1 1 50%";
+
+        if (otherPanel.id === 'panelVideo') {
+          otherPanel.style.display = 'flex';
+        } else {
+          otherPanel.style.display = 'block';
+        }
+
+        btn.innerText = "[ + ]";
+        btn.title = "Phóng to/Thu nhỏ";
+      }
+
+      setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+      }, 350);
+    };
+  </script>
+
+  <!-- Modal Chọn Bài Tập -->
+  <div class="modal fade" id="exerciseModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content" style="background:#1b4a62; border: 1px solid #286c87;">
+        <div class="modal-header border-0">
+          <h6 class="modal-title text-white fw-bold">Chọn Bài Tập</h6>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <select class="form-select fw-bold" id="exerciseSelect" style="width: 100%; border-radius: 6px;">
+              <option value="Gập khớp cổ chân" selected>Gập khớp cổ chân</option>
+              <option value="Gập khớp gối">Gập khớp gối</option>
+              <option value="Gập khớp háng">Gập khớp háng</option>
+            </select>
+          </div>
+          <input type="hidden" id="measure_date" value="">
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <script>
+    let ecgChart = null;
+    let ecgData = Array(120).fill(0); // Tăng lên 120 điểm để nhìn thấy rõ đường nền uốn lượn
+    let timeStep = 0;
+    let nextBeat = 15; // Thời điểm đánh nhịp tiếp theo
+
+    function initEcg() {
+      const canvas = document.getElementById('ecgChart');
+      if (!canvas) return;
+
+      // Xóa biểu đồ cũ nếu có
+      if (ecgChart) ecgChart.destroy();
+
+      const ctx = canvas.getContext('2d');
+      ecgChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: Array(120).fill(''),
+          datasets: [{
+            data: ecgData,
+            borderColor: '#00ff00',
+            borderWidth: 1.5,
+            pointRadius: 0,
+            tension: 0.1 // Để đỉnh R sắc nhọn, không bị bo tròn
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          scales: {
+            y: { min: -1.0, max: 2.0, display: false }, // Mở rộng trục Y để chứa đường lượn sóng
+            x: { display: false }
+          },
+          plugins: { legend: { display: false } }
+        }
+      });
+    }
+
+    function runRealisticEcg() {
+      // CHỈ CHẠY KHI ĐANG TRONG TRẠNG THÁI ĐO
+      if (!ecgChart || !isMeasuring) return;
+
+      // 1. TẠO NHỊP THỞ (Baseline Wander): Đường nền trôi lên xuống nhấp nhô
+      let baseline = Math.sin(timeStep / 20) * 0.25;
+
+      // 2. NHIỄU ĐIỆN CỰC: Rung động li ti
+      let noise = (Math.random() - 0.5) * 0.08;
+      let val = baseline + noise;
+
+      // 3. LOGIC TẠO ĐỈNH TIM (P-QRS-T) VỚI KHOẢNG NGẮT NGẪU NHIÊN
+      if (timeStep >= nextBeat) {
+        let p = timeStep - nextBeat;
+        if (p === 2) val += 0.2;         // Sóng P
+        else if (p === 5) val -= 0.15;   // Sóng Q
+        else if (p === 6) val += 1.3 + (Math.random() * 0.3); // Đỉnh R (độ cao thay đổi)
+        else if (p === 7) val -= 0.4;    // Sóng S (cắm sâu xuống)
+        else if (p === 13) val += 0.3;   // Sóng T
+        else if (p > 18) {
+          // TẠO KHOẢNG NGẮT (HRV): Tim đập không đều, lúc nhanh lúc chậm
+          nextBeat = timeStep + Math.floor(Math.random() * 15) + 12;
+        }
+      }
+
+      ecgData.push(val);
+      ecgData.shift();
+      ecgChart.update('none');
+      timeStep++;
+    }
+
+    // Khởi động mạch đập ngay khi load trang
+    function collapseExpandedMiniChart() {
+      const expanded = document.querySelector('.mini-chart-card.is-expanded');
+      if (!expanded) return;
+      expanded.classList.remove('is-expanded');
+      const btn = expanded.querySelector('.chart-expand-btn');
+      if (btn) btn.textContent = '⤢';
+      setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
+    }
+
+    function initMiniChartZoom() {
+      const visibilityHost = document.getElementById('chartVisibilityContent');
+      ['emgCard', 'anglesCard'].forEach((containerId) => {
+        const cardRoot = document.getElementById(containerId);
+        if (!cardRoot) return;
+        const grid = cardRoot.querySelector('.d-grid');
+        if (!grid) return;
+
+        const cards = Array.from(grid.children).filter(el => el.classList.contains('d-flex'));
+        const pretty = (s) => (s || '').replace(/\s+/g, ' ').trim();
+        const groupName = containerId === 'emgCard' ? 'EMG' : 'Góc khớp';
+        if (visibilityHost && !visibilityHost.querySelector(`[data-group="${containerId}"]`)) {
+          const groupWrap = document.createElement('div');
+          groupWrap.className = 'chart-visibility-group';
+          groupWrap.dataset.group = containerId;
+
+          const groupTitle = document.createElement('div');
+          groupTitle.className = 'chart-visibility-title';
+          groupTitle.textContent = groupName;
+          groupWrap.appendChild(groupTitle);
+
+          const toolbar = document.createElement('div');
+          toolbar.className = 'mini-chart-toolbar';
+          const allBtn = document.createElement('button');
+          allBtn.type = 'button';
+          allBtn.className = 'mini-chart-toggle-btn is-on';
+          allBtn.textContent = `Hiện tất cả ${groupName}`;
+          allBtn.addEventListener('click', () => {
+            cards.forEach((card) => {
+              card.classList.remove('chart-hidden');
+              card.dataset.chartVisible = '1';
+              const btn = toolbar.querySelector(`[data-card-id="${card.dataset.chartId}"]`);
+              if (btn) btn.classList.add('is-on');
+            });
+            setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
+          });
+          toolbar.appendChild(allBtn);
+
+          cards.forEach((card, idx) => {
+            card.dataset.chartId = card.dataset.chartId || `${containerId}-${idx}`;
+            if (!card.dataset.chartVisible) card.dataset.chartVisible = '1';
+            const head = card.querySelector(':scope > .d-flex.justify-content-between');
+            const titleEl = head ? head.querySelector('div') : null;
+            const label = pretty(titleEl ? titleEl.innerText : `Biểu đồ ${idx + 1}`);
+            card.dataset.chartLabel = label;
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'mini-chart-toggle-btn is-on';
+            btn.dataset.cardId = card.dataset.chartId;
+            btn.textContent = label;
+            btn.title = `Bật/tắt ${label}`;
+            btn.addEventListener('click', () => {
+              const willShow = card.classList.contains('chart-hidden');
+              if (!willShow && card.classList.contains('is-expanded')) collapseExpandedMiniChart();
+              card.classList.toggle('chart-hidden', !willShow);
+              card.dataset.chartVisible = willShow ? '1' : '0';
+              btn.classList.toggle('is-on', willShow);
+              setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
+            });
+            toolbar.appendChild(btn);
+          });
+          groupWrap.appendChild(toolbar);
+          visibilityHost.appendChild(groupWrap);
+        }
+
+        cards.forEach((card) => {
+          if (card.dataset.zoomReady === '1') return;
+          card.dataset.zoomReady = '1';
+          card.classList.add('mini-chart-card');
+
+          const head = card.querySelector(':scope > .d-flex.justify-content-between');
+          if (!head) return;
+          head.classList.add('chart-expand-head');
+
+          const expandBtn = document.createElement('button');
+          expandBtn.type = 'button';
+          expandBtn.className = 'chart-expand-btn ms-2';
+          expandBtn.textContent = '⤢';
+          expandBtn.title = 'Phóng to / thu nhỏ biểu đồ';
+
+          const toggleExpand = (evt) => {
+            if (evt) evt.stopPropagation();
+            const willExpand = !card.classList.contains('is-expanded');
+            collapseExpandedMiniChart();
+            if (!willExpand) return;
+            card.classList.add('is-expanded');
+            expandBtn.textContent = '×';
+            setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
+          };
+
+          expandBtn.addEventListener('click', toggleExpand);
+          head.addEventListener('click', (evt) => {
+            if (evt.target.closest('button')) return;
+            toggleExpand();
+          });
+          head.appendChild(expandBtn);
+        });
+      });
+
+      document.addEventListener('keydown', (evt) => {
+        if (evt.key === 'Escape') collapseExpandedMiniChart();
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      initMiniChartZoom();
+      initEcg();
+      setInterval(runRealisticEcg, 35); // Quét mỗi 35ms để đường vẽ mượt và chân thực
+    });
+
+    // Gọi khởi tạo khi trang load
+    function toggleRealtimeCard(type) {
+      collapseExpandedMiniChart();
+      const emg = document.getElementById('emgCard');
+      const angles = document.getElementById('anglesCard');
+      const ecg = document.getElementById('ecgCard'); // Đảm bảo dòng này đã có
+
+      // 1. Reset tất cả các nút
+      const btns = ['tab-emg', 'tab-angles', 'tab-ecg', 'tab-both'];
+      btns.forEach(id => {
+        const b = document.getElementById(id);
+        if (b) b.classList.remove('active');
+      });
+      const activeBtn = document.getElementById('tab-' + type);
+      if (activeBtn) activeBtn.classList.add('active');
+
+      // 2. Ẩn toàn bộ các Card
+      [emg, angles, ecg].forEach(el => {
+        if (el) {
+          el.classList.remove('d-flex');
+          el.classList.add('d-none');
+        }
+      });
+
+      // 3. LOGIC SỬA LỖI: Bật đúng cái cần xem
+      if (type === 'emg') {
+        if (emg) { emg.classList.remove('d-none'); emg.classList.add('d-flex'); }
+        setTimeout(() => { ensureEmgChart(); emgUpdateChart(); }, 80);
+      } else if (type === 'angles') {
+        if (angles) { angles.classList.remove('d-none'); angles.classList.add('d-flex'); }
+        // Force destroy và tạo lại charts để tránh Chart.js init khi canvas size=0
+        setTimeout(() => {
+          Object.keys(anglesCharts).forEach(k => {
+            if (anglesCharts[k]) { anglesCharts[k].destroy(); anglesCharts[k] = null; }
+          });
+          ensureAnglesChart();
+          anglesUpdateChart();
+          window.dispatchEvent(new Event('resize'));
+        }, 80);
+      } else if (type === 'ecg') {
+        if (ecg) { ecg.classList.remove('d-none'); ecg.classList.add('d-flex'); }
+      } else {
+        // Tab "Đồng bộ"
+        if (emg) { emg.classList.remove('d-none'); emg.classList.add('d-flex'); }
+        if (angles) { angles.classList.remove('d-none'); angles.classList.add('d-flex'); }
+        setTimeout(() => { ensureEmgChart(); emgUpdateChart(); ensureAnglesChart(); anglesUpdateChart(); }, 80);
+      }
+
+      setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
+    }
+
+
+  </script>
+
+  <!-- Đưa JS saveHealthyData về đúng vị trí -->
+  <script>
+    // --- Bộ giả lập Tim & Cơ người khỏe ---
+    function saveHealthyData(result) {
+      result.ecg = Math.floor(Math.random() * (85 - 72 + 1)) + 72; // Tim 72-85 bpm
+      result.emg_val = Math.floor(Math.random() * (450 - 320 + 1)) + 320; // Cơ khỏe 320-450 uV
+      return result;
+    }
+  </script>
+  {% include 'chatbot.html' %}
+  {% include 'desktop_keepalive.html' %}
+</body>
+
+</html>

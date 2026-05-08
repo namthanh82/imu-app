@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title data-i18n="emg.page_title">Biểu đồ EMG</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
+
+<link href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
+<script src="{{ url_for('static', filename='vendor/chartjs/chart.umd.js') }}"></script>
+
+<style>
+:root { --blue:#1669c9; --sbw:260px; }
+body { background: #1b4a62; margin:0; }
+.layout{ display:flex; gap:16px; position:relative; }
+
+.sidebar-col{ flex:0 0 var(--sbw); max-width:var(--sbw); transition:all .28s ease; }
+.sidebar{
+  background:var(--blue); color:#fff;
+  border-top-right-radius:16px; border-bottom-right-radius:16px;
+  padding:16px; min-height:100vh;
+}
+.main-col{ flex:1 1 auto; min-width:0; }
+
+body.sb-collapsed .sidebar-col{ flex-basis:0 !important; max-width:0 !important; }
+body.sb-collapsed .sidebar{ padding:0 !important; }
+body.sb-collapsed .sidebar *{ display:none; }
+
+#btnToggleSB{
+  border:2px solid #d8e6ff; background:#fff;
+  border-radius:10px; padding:6px 10px; font-weight:700;
+}
+#btnToggleSB:hover{ background:#eef6ff; }
+
+.menu-btn{
+  width:100%; display:block; background:#1d74d8; border:none; color:#fff;
+  padding:10px 12px; margin:8px 0; border-radius:12px;
+  font-weight:600; text-align:left; text-decoration:none;
+}
+.menu-btn:hover{ background:#1f80ea; }
+.menu-btn.active{ background:#0f5bb0; }
+
+.panel{
+  background:#fff; border-radius:16px;
+  box-shadow:0 8px 20px rgba(16,24,40,0.10);
+  padding:16px; margin-bottom:16px;
+}
+.chart-box{ height:420px; }
+</style>
+
+<style>
+/* Top Navbar Style (Image 3 look) */
+.header-nav-link { color: #aab6c2; text-decoration: none; font-weight: 500; font-size: 16px; padding: 12px 16px; margin: 0 4px; display: flex; align-items: center; gap: 8px; border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; }
+.header-nav-link:hover { color: #fff; background: rgba(255,255,255,0.05); border-radius: 4px 4px 0 0; }
+.header-nav-link.active { color: #4dc3ff; border-bottom: 3px solid #4dc3ff; }
+.header-nav-link i { font-size: 20px; }
+</style>
+</head>
+
+<body class="sb-collapsed">
+
+<nav class="navbar px-4 py-0" style="background: #0b161f; border-bottom: 1px solid #162b3b;">
+  <div class="container-fluid d-flex align-items-center p-0">
+    <div class="d-flex align-items-center h-100" id="top-nav-menu">
+      <a class="header-nav-link " href="/"><i class="bi bi-house"></i> <span data-i18n="menu.home">Trang chủ</span></a>
+      <a class="header-nav-link " href="/calibration"><i class="bi bi-sliders"></i> <span data-i18n="menu.calib">Hiệu chuẩn</span></a>
+      <a class="header-nav-link " href="/patients/manage"><i class="bi bi-person-lines-fill"></i> <span data-i18n="menu.patinfo">Thông tin bệnh nhân</span></a>
+      <a class="header-nav-link " href="/records"><i class="bi bi-journal-text"></i> <span data-i18n="menu.record">Bệnh án</span></a>
+      <a class="header-nav-link active" href="/charts"><i class="bi bi-bar-chart"></i> <span data-i18n="menu.charts">Biểu đồ</span></a>
+      <a class="header-nav-link " href="/settings"><i class="bi bi-gear"></i> <span data-i18n="menu.settings">Cài đặt</span></a>
+    </div>
+
+    <div id="selectedPatientDisplay" style="display:none; background:#1669c9; border-radius:8px; font-size: 14px;" class="px-3 py-1 fw-bold text-white shadow-sm ms-4 my-2">
+      Bệnh nhân đang chọn: <span id="spName"></span>
+    </div>
+    
+    <div class="ms-auto d-flex align-items-center py-2">
+      <img src="{{ url_for('static', filename='logokomlab.png') }}" alt="Logo" height="40">
+    </div>
+  </div>
+</nav>
+
+<div class="container-fluid my-3">
+  <div class="layout">
+    <!-- Removed Sidebar -->
+
+    <main class="main-col">
+      <div class="panel">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <h5 data-i18n="emg.title">Biểu đồ tín hiệu EMG</h5>
+            <div class="text-muted small" data-i18n="emg.subtitle">
+              EMG (raw/RMS/envelope) theo thời gian – hiển thị 6 giây cuối của phiên đo gần nhất.
+            </div>
+          </div>
+          <a class="btn btn-outline-primary btn-sm" href="/charts" data-i18n="emg.back">← Biểu đồ góc khớp</a>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="chart-box">
+          <canvas id="emgChart"></canvas>
+        </div>
+        <div class="small text-muted mt-2" id="hintBox"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+// I18N cho trang EMG
+const I18N_EMG = {
+  vi:{
+    "menu.title":"MENU","menu.home":"Trang chủ","menu.calib":"Hiệu chuẩn","menu.patinfo":"Thông tin bệnh nhân",
+    "menu.charts":"Biểu đồ","menu.emg":"Biểu đồ EMG","menu.settings":"Cài đặt",
+    "emg.title":"Biểu đồ tín hiệu EMG",
+    "emg.subtitle":"EMG (raw/RMS/envelope) theo thời gian – hiển thị 6 giây cuối của phiên đo gần nhất.",
+    "emg.back":"← Biểu đồ góc khớp"
+  },
+  en:{
+    "menu.title":"MENU","menu.home":"Home","menu.calib":"Calibration","menu.patinfo":"Patient info",
+    "menu.charts":"Angle charts","menu.emg":"EMG charts","menu.settings":"Settings",
+    "emg.title":"EMG signal chart",
+    "emg.subtitle":"EMG (raw/RMS/envelope) over time – show last 6 seconds of the latest session.",
+    "emg.back":"← Joint angle charts"
+  }
+};
+function applyLangEmg(lang){
+  const dict = I18N_EMG[lang] || I18N_EMG.vi;
+  document.querySelectorAll("[data-i18n]").forEach(el=>{
+    const k = el.getAttribute("data-i18n");
+    if (dict[k]) el.textContent = dict[k];
+  });
+}
+document.addEventListener("DOMContentLoaded", ()=>{
+  const lang = localStorage.getItem("appLang") || "vi";
+  document.documentElement.lang = lang;
+  applyLangEmg(lang);
+});
+document.getElementById("btnToggleSB").onclick = () =>
+  document.body.classList.toggle("sb-collapsed");
+</script>
+
+<script>
+/* ===== DATA FROM SERVER (Jinja) ===== */
+const t_ms_raw    = {{ (t_ms    or []) | tojson }};
+const hip_raw     = {{ (hip     or []) | tojson }};
+const knee_raw    = {{ (knee    or []) | tojson }};
+const ankle_raw   = {{ (ankle   or []) | tojson }};
+
+const emg_raw     = {{ (emg     or []) | tojson }};
+const emg_rms_raw = {{ (emg_rms or []) | tojson }};
+const emg_env_raw = {{ (emg_env or []) | tojson }};
+
+/*  EXPOSE TO WINDOW (để Console thấy) */
+window.t_ms_raw = t_ms_raw;
+window.hip_raw = hip_raw;
+window.knee_raw = knee_raw;
+window.ankle_raw = ankle_raw;
+
+window.emg_raw = emg_raw;
+window.emg_rms_raw = emg_rms_raw;
+window.emg_env_raw = emg_env_raw;
+
+/*  DEBUG HELPER */
+window._dbg = function(){
+  return {
+    t_len: (window.t_ms_raw||[]).length,
+    hip_len: (window.hip_raw||[]).length,
+    emg_len: (window.emg_raw||[]).length,
+    rms_len: (window.emg_rms_raw||[]).length,
+    env_len: (window.emg_env_raw||[]).length,
+    t_first: (window.t_ms_raw||[])[0],
+    t_last:  (window.t_ms_raw||[]).at ? (window.t_ms_raw||[]).at(-1) : (window.t_ms_raw||[])[(window.t_ms_raw||[]).length-1],
+  };
+};
+
+/*  LOG NGAY KHI LOAD (để khỏi phải gõ) */
+console.log("[DBG] injected:", window._dbg());
+</script>
+
+
+<script>
+// ===== CLIP 6s CUỐI =====
+// ===== CLIP 12–15 GIÂY CUỐI (t_ms của bạn đang là GIÂY) =====
+const WINDOW_SEC = 5; // đổi 12 hoặc 15 tùy bạn
+
+(function clipLastWindow(){
+  if (!t_ms.length) return;
+
+  const lastT = t_ms[t_ms.length - 1];  // đơn vị: giây
+  const minT  = lastT - WINDOW_SEC;
+
+  let startIdx = 0;
+  while (startIdx < t_ms.length && t_ms[startIdx] < minT) startIdx++;
+
+  if (startIdx > 0 && startIdx < t_ms.length) {
+    t_ms     = t_ms.slice(startIdx);
+    hipArr   = hipArr.slice(startIdx);
+    kneeArr  = kneeArr.slice(startIdx);
+    ankleArr = ankleArr.slice(startIdx);
+
+    // EMG: nếu cùng chiều với t_ms_raw thì slice theo index
+    if (emgArr.length === t_ms_raw.length)    emgArr    = emgArr.slice(startIdx);
+    if (emgRmsArr.length === t_ms_raw.length) emgRmsArr = emgRmsArr.slice(startIdx);
+    if (emgEnvArr.length === t_ms_raw.length) emgEnvArr = emgEnvArr.slice(startIdx);
+  }
+})();
+
+
+// ===== DEBUG HELPER (gõ _dbg() trong console) =====
+window._dbg = () => ({
+  url: location.pathname,
+  t_len: t_ms.length,
+  emg_len: emgArr.length,
+  rms_len: emgRms.length,
+  env_len: emgEnv.length,
+  last_t: t_ms.length ? t_ms[t_ms.length-1] : null
+});
+
+// ===== DRAW CHART =====
+const lang = localStorage.getItem("appLang") || "vi";
+const AXIS = {
+  vi: { x:"t (ms)", y:"EMG (a.u.)", empty:"Không có dữ liệu EMG. Kiểm tra route /charts_emg có truyền emg/emg_rms/emg_env và t_ms." },
+  en: { x:"t (ms)", y:"EMG (a.u.)", empty:"No EMG data. Check /charts_emg passes emg/emg_rms/emg_env and t_ms." }
+}[lang] || { x:"t (ms)", y:"EMG (a.u.)", empty:"No EMG data." };
+
+const hintBox = document.getElementById("hintBox");
+
+const datasets = [];
+if (emgArr && emgArr.length) datasets.push({ label:"raw", data: emgArr, borderWidth:1.5, tension:0.15 });
+if (emgRms && emgRms.length) datasets.push({ label:"rms", data: emgRms, borderWidth:2, tension:0.15 });
+if (emgEnv && emgEnv.length) datasets.push({ label:"env", data: emgEnv, borderWidth:2, tension:0.15 });
+
+if (!t_ms.length || !datasets.length) {
+  hintBox.textContent = AXIS.empty;
+  console.warn(AXIS.empty, window._dbg());
+}
+
+new Chart(document.getElementById("emgChart"), {
+  type:"line",
+  data:{ labels: t_ms, datasets },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    interaction:{ mode:"index", intersect:false },
+    plugins:{ legend:{ display:true, labels: { color: '#aab6c2' } } },
+    scales:{
+      x:{ 
+        title:{ display:true, text: AXIS.x, color: '#aab6c2' },
+        grid: { color: 'rgba(255,255,255,0.08)' },
+        ticks: { color: '#aab6c2' }
+      },
+      y:{ 
+        title:{ display:true, text: AXIS.y, color: '#aab6c2' },
+        grid: { color: 'rgba(255,255,255,0.08)' },
+        ticks: { color: '#aab6c2' }
+      }
+    }
+  }
+});
+</script>
+
+{% include 'desktop_keepalive.html' %}
+</body>
+</html>

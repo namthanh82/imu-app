@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title data-i18n="calib.page_title">Hiệu chuẩn</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
+
+<link href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
+
+<style>
+:root{ --blue:#1669c9; --sbw:260px; }
+
+body { background: #1b4a62;
+  margin:0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.layout{
+  display:flex;
+  gap:16px;
+  position:relative;
+}
+.sidebar{
+  background:var(--blue);
+  color:#fff;
+  border-top-right-radius:16px;
+  border-bottom-right-radius:16px;
+  padding:16px;
+  width:var(--sbw);
+  min-height:100vh;
+  box-sizing:border-box;
+}
+.sidebar-col{
+  flex:0 0 var(--sbw);
+  max-width:var(--sbw);
+  transition:flex-basis .28s ease, max-width .28s ease, transform .28s ease;
+}
+.main-col{
+  flex:1 1 auto;
+  min-width:0;
+}
+
+/* collapsed sidebar */
+.sb-collapsed .sidebar-col{
+  flex-basis:0;
+  max-width:0;
+  transform:translateX(-8px);
+}
+.sb-collapsed .sidebar{
+  padding:0;
+  width:0;
+  border-radius:0;
+}
+.sb-collapsed .sidebar *{
+  display:none;
+}
+
+/* Navbar toggle button */
+#btnToggleSB{
+  border:2px solid #d8e6ff;
+  border-radius:10px;
+  background:#fff;
+  padding:6px 10px;
+  font-weight:700;
+}
+#btnToggleSB:hover{ background:#f4f8ff; }
+
+/* Menu buttons */
+.menu-btn{
+  width:100%;
+  display:block;
+  background:#1973d4;
+  border:none;
+  color:#fff;
+  padding:10px 12px;
+  margin:8px 0;
+  border-radius:12px;
+  font-weight:600;
+  text-align:left;
+  text-decoration:none;
+}
+.menu-btn:hover{ background:#1f80ea; }
+.menu-btn.active{ background:#0f5bb0; }
+
+/* Video block */
+.video-card{
+  background:#ffffff;
+  border-radius:18px;
+  box-shadow:0 10px 30px rgba(15,23,42,.16);
+  padding:18px 18px 22px;
+  max-width:1100px;
+  margin:24px auto 32px auto;
+}
+.video-title{
+  font-weight:700;
+  color:#0a3768;
+  margin-bottom:12px;
+}
+.video-frame video{
+  width:100%;
+  height:100%;
+  border-radius:16px;
+}
+</style>
+
+<style>
+/* Top Navbar Style (Image 3 look) */
+.header-nav-link { color: #aab6c2; text-decoration: none; font-weight: 500; font-size: 16px; padding: 12px 16px; margin: 0 4px; display: flex; align-items: center; gap: 8px; border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; }
+.header-nav-link:hover { color: #fff; background: rgba(255,255,255,0.05); border-radius: 4px 4px 0 0; }
+.header-nav-link.active { color: #4dc3ff; border-bottom: 3px solid #4dc3ff; }
+.header-nav-link i { font-size: 20px; }
+</style>
+</head>
+
+<body class="sb-collapsed">
+
+<nav class="navbar px-4 py-0" style="background: #0b161f; border-bottom: 1px solid #162b3b;">
+  <div class="container-fluid d-flex align-items-center p-0">
+    <div class="d-flex align-items-center h-100" id="top-nav-menu">
+      <a class="header-nav-link " href="/"><i class="bi bi-house"></i> <span data-i18n="menu.home">Trang chủ</span></a>
+      <a class="header-nav-link active" href="/calibration"><i class="bi bi-sliders"></i> <span data-i18n="menu.calib">Hiệu chuẩn</span></a>
+      <a class="header-nav-link " href="/patients/manage"><i class="bi bi-person-lines-fill"></i> <span data-i18n="menu.patinfo">Thông tin bệnh nhân</span></a>
+      <a class="header-nav-link " href="/records"><i class="bi bi-journal-text"></i> <span data-i18n="menu.record">Bệnh án</span></a>
+      <a class="header-nav-link " href="/charts"><i class="bi bi-bar-chart"></i> <span data-i18n="menu.charts">Biểu đồ</span></a>
+              <button class="header-nav-link" id="btn-open-chatbot" onclick="openChatbotModal()"
+          style="background:none; border:none; cursor:pointer; color:#aab6c2; display:flex; align-items:center; gap:8px; font-weight:500; font-size:16px; padding:12px 16px; border-bottom:3px solid transparent; transition:all 0.2s;"
+          onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#aab6c2'">
+          <i class="bi bi-robot" style="font-size:20px;"></i> <span>Hỗ trợ AI</span>
+        </button>
+<a class="header-nav-link " href="/settings"><i class="bi bi-gear"></i> <span data-i18n="menu.settings">Cài đặt</span></a>
+    </div>
+
+    <div id="selectedPatientDisplay" style="display:none; background:#1669c9; border-radius:8px; font-size: 14px;" class="px-3 py-1 fw-bold text-white shadow-sm ms-4 my-2">
+      Bệnh nhân đang chọn: <span id="spName"></span>
+    </div>
+    
+    <div class="ms-auto d-flex align-items-center py-2">
+      <img src="{{ url_for('static', filename='logokomlab.png') }}" alt="Logo" height="40">
+    </div>
+  </div>
+</nav>
+
+<div class="container-fluid my-3">
+  <div class="layout">
+
+    <!-- Sidebar -->
+    <!-- Removed Sidebar -->
+
+    <!-- Main content -->
+    <main class="main-col d-flex flex-column align-items-center justify-content-center w-100" style="height: calc(100vh - 85px);">
+      <div class="video-container d-flex flex-column shadow-sm overflow-hidden" style="background: transparent; color: #fff; width: 100%; max-width: 1100px;">
+        <div class="video-title text-center text-white mb-3 fs-3 fw-bold" data-i18n="calib.title">HƯỚNG DẪN HIỆU CHUẨN IMU</div>
+
+        <div class="position-relative" style="background: #0e1a24; border-radius: 12px; aspect-ratio: 16/9; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.3);">
+          <video id="guideVideo" class="w-100 h-100" style="object-fit: cover;" playsinline preload="metadata" muted autoplay loop>
+            <source src="{{ url_for('static', filename='videos/calibration_loop.mp4') }}" type="video/mp4">
+            Sorry, your browser doesn't support embedded videos.
+          </video>
+        </div>
+
+        <!-- BOTTOM BAR (Sticky style actions) -->
+        <div class="panel mt-3 py-2 px-3 shadow-sm border-0 d-flex align-items-center justify-content-center" style="background: #0f4055; border-radius: 12px; margin: 0 auto; width: fit-content;">
+
+           <div class="d-flex align-items-center gap-1" style="background: rgba(255,255,255,0.1); border-radius: 12px; padding: 4px;">
+                <button class="btn btn-sm d-flex align-items-center justify-content-center text-white" style="border:none; width: 32px; height: 32px; border-radius: 8px; transition: 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='transparent'" onclick="document.getElementById('guideVideo').currentTime = 0" title="Về đầu">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
+                </button>
+                <button class="btn btn-sm d-flex align-items-center justify-content-center text-white" style="border:none; width: 32px; height: 32px; border-radius: 8px; transition: 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='transparent'" onclick="document.getElementById('guideVideo').currentTime -= 5" title="Lùi 5s">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 19 2 12 11 5 11 19"></polygon><polygon points="22 19 13 12 22 5 22 19"></polygon></svg>
+                </button>
+                <button class="btn btn-sm d-flex align-items-center justify-content-center text-white" style="border:none; width: 44px; height: 32px; border-radius: 8px; background: rgba(255,255,255,0.15); transition: 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'" onclick="const v = document.getElementById('guideVideo'); v.paused ? v.play() : v.pause()" id="playPauseBtnToggle" title="Phát/Dừng">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                </button>
+                <button class="btn btn-sm d-flex align-items-center justify-content-center text-white" style="border:none; width: 32px; height: 32px; border-radius: 8px; transition: 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='transparent'" onclick="document.getElementById('guideVideo').currentTime += 5" title="Tiến 5s">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 19 22 12 13 5 13 19"></polygon><polygon points="2 19 11 12 2 5 2 19"></polygon></svg>
+                </button>
+                <button class="btn btn-sm d-flex align-items-center justify-content-center text-white" style="border:none; width: 32px; height: 32px; border-radius: 8px; transition: 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='transparent'" onclick="const v = document.getElementById('guideVideo'); v.currentTime = v.duration || 0" title="Đến cuối">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
+                </button>
+           </div>
+        </div>
+      </div>
+    </main>
+
+  </div>
+</div>
+
+<script>
+// ============= I18N DICTIONARY =============
+const I18N = {
+  vi: {
+    "nav.hello": "Xin chào,",
+    "menu.title": "MENU",
+    "menu.home": "Trang chủ",
+    "menu.calib": "Hiệu chuẩn",
+    "menu.patinfo": "Thông tin bệnh nhân",
+    "menu.records": "Bệnh án",
+    "menu.charts": "Biểu đồ",
+    "menu.settings": "Cài đặt",
+
+    "calib.page_title": "Hiệu chuẩn",
+    "calib.title": "HƯỚNG DẪN HIỆU CHUẨN IMU",
+  },
+  en: {
+    "nav.hello": "Hello,",
+    "menu.title": "MENU",
+    "menu.home": "Home",
+    "menu.calib": "Calibration",
+    "menu.patinfo": "Patient info",
+    "menu.records": "Records",
+    "menu.charts": "Charts",
+    "menu.settings": "Settings",
+
+    "calib.page_title": "Calibration",
+    "calib.title": "IMU CALIBRATION GUIDE",
+  }
+};
+
+// ============= Apply language =============
+function applyLanguage(lang){
+  const dict = I18N[lang] || I18N.vi;
+
+  document.querySelectorAll("[data-i18n]").forEach(el=>{
+    const k = el.getAttribute("data-i18n");
+    if (dict[k]) el.textContent = dict[k];
+  });
+
+  const titleEl = document.querySelector("title[data-i18n]");
+  if (titleEl){
+    const key = titleEl.getAttribute("data-i18n");
+    if (dict[key]) titleEl.textContent = dict[key];
+  }
+}
+
+// ============= Sidebar toggle =============
+document.getElementById('btnToggleSB').onclick = () => {
+  document.body.classList.toggle('sb-collapsed');
+};
+
+// ============= Load language at startup =============
+document.addEventListener("DOMContentLoaded", ()=>{
+  const lang = localStorage.getItem("appLang") || "vi";
+  applyLanguage(lang);
+});
+</script>
+
+  {% include 'chatbot.html' %}
+  {% include 'desktop_keepalive.html' %}
+</body>
+</html>

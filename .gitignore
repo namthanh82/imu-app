@@ -1,31 +1,58 @@
+# ── Secrets & Environment ──────────────────────────────────
 .env
 *.env
+!.env.example
 
-.venv/
-.venv_test/
-venv/
-env/
+# ── Python ─────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
-*.pyd
+*$py.class
 *.so
-*.log
-
-.cursor/
-.vscode/
-.idea/
-
-build/
+*.egg-info/
+*.egg
 dist/
+build/
+*.manifest
+*.spec
+!ReTrack.spec
+
+# ── Virtual Environments ──────────────────────────────────
+.venv*/
+venv*/
+env/
+ENV/
+
+# ── IDE / Editor ──────────────────────────────────────────
+.vscode/
+.cursor/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Node (not used, prevent accidental inclusion) ─────────
+node_modules/
+package-lock.json
+
+# ── OS Files ──────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Binary Assets (too large for Git) ─────────────────────
 *.exe
+*.pptx
+*.docx
+*.rar
 
-/db/
-/exports/
-records.json
-vas.json
+# ── Project-specific ─────────────────────────────────────
+old_backup/
+scratch/
+exports/
+db/
+models/
+.chroma/
+cau_hoi_cho_duyet.txt
 
-/models/
-
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
+# ── Logs & temp ───────────────────────────────────────────
+*.log
+pip-log.txt

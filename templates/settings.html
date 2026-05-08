@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title data-i18n="settings.page_title">Cài đặt – IMU Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
+
+  <link href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
+
+  <style>
+    :root {
+      --blue: #1669c9;
+      --soft: #f3f7ff;
+      --sbw: 260px;
+    }
+
+    body {
+      background: #1b4a62;
+      font-size: 15px;
+    }
+
+    .layout {
+      display: flex;
+      gap: 16px;
+      position: relative;
+    }
+
+    .sidebar {
+      background: var(--blue);
+      color: #fff;
+      border-top-right-radius: 16px;
+      border-bottom-right-radius: 16px;
+      padding: 16px;
+      width: var(--sbw);
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+
+    .sidebar-col {
+      flex: 0 0 var(--sbw);
+      max-width: var(--sbw);
+    }
+
+    .main-col {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .menu-btn {
+      width: 100%;
+      display: block;
+      background: #1973d4;
+      border: none;
+      color: #fff;
+      padding: 10px 12px;
+      margin: 8px 0;
+      border-radius: 12px;
+      font-weight: 600;
+      text-align: left;
+      text-decoration: none;
+    }
+
+    .menu-btn:hover {
+      background: #1f80ea;
+      color: #fff;
+    }
+
+    .menu-btn.active {
+      background: #0b4fa0;
+    }
+
+    .panel {
+      background: #112a3e;
+      color: #fff;
+      border-radius: 16px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, .15);
+      padding: 16px 20px;
+      border: 1px solid #1a3347;
+    }
+
+    .form-label {
+      font-weight: 600;
+      color: #aab6c2;
+    }
+
+    .text-secondary {
+      color: #aab6c2 !important;
+    }
+
+    .text-muted {
+      color: #8ab4c9 !important;
+    }
+
+    .list-group-item {
+      background: transparent;
+      color: #fff;
+      border-color: #1a3347;
+    }
+
+    .form-select,
+    .form-control {
+      background: #1a3347;
+      color: #fff;
+      border-color: #2a4357;
+    }
+
+    .form-select:focus,
+    .form-control:focus {
+      background: #1a3347;
+      color: #fff;
+      border-color: #4dc3ff;
+      outline: none;
+      box-shadow: none;
+    }
+  </style>
+
+  <style>
+    /* Top Navbar Style (Image 3 look) */
+    .header-nav-link {
+      color: #aab6c2;
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 16px;
+      padding: 12px 16px;
+      margin: 0 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .header-nav-link:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px 4px 0 0;
+    }
+
+    .header-nav-link.active {
+      color: #4dc3ff;
+      border-bottom: 3px solid #4dc3ff;
+    }
+
+    .header-nav-link i {
+      font-size: 20px;
+    }
+  </style>
+</head>
+
+<body>
+  <nav class="navbar px-4 py-0" style="background: #0b161f; border-bottom: 1px solid #162b3b;">
+    <div class="container-fluid d-flex align-items-center p-0">
+      <div class="d-flex align-items-center h-100" id="top-nav-menu">
+        <a class="header-nav-link " href="/"><i class="bi bi-house"></i> <span data-i18n="menu.home">Trang
+            chủ</span></a>
+        <a class="header-nav-link " href="/calibration"><i class="bi bi-sliders"></i> <span data-i18n="menu.calib">Hiệu
+            chuẩn</span></a>
+        <a class="header-nav-link " href="/patients/manage"><i class="bi bi-person-lines-fill"></i> <span
+            data-i18n="menu.patinfo">Thông tin bệnh nhân</span></a>
+        <a class="header-nav-link " href="/records"><i class="bi bi-journal-text"></i> <span
+            data-i18n="menu.record">Bệnh án</span></a>
+        <a class="header-nav-link " href="/charts"><i class="bi bi-bar-chart"></i> <span data-i18n="menu.charts">Biểu
+            đồ</span></a>
+        <a class="header-nav-link active" href="/settings"><i class="bi bi-gear"></i> <span
+            data-i18n="menu.settings">Cài đặt</span></a>
+      </div>
+
+      <div id="selectedPatientDisplay" style="display:none; background:#1669c9; border-radius:8px; font-size: 14px;"
+        class="px-3 py-1 fw-bold text-white shadow-sm ms-4 my-2">
+        Bệnh nhân đang chọn: <span id="spName"></span>
+      </div>
+
+      <div class="ms-auto d-flex align-items-center py-2">
+        <img src="{{ url_for('static', filename='logokomlab.png') }}" alt="Logo" height="40">
+      </div>
+    </div>
+  </nav>
+
+  <div class="container-fluid my-3">
+    <div class="layout">
+
+      <!-- Sidebar -->
+      <!-- Removed Sidebar -->
+
+      <!-- Main -->
+      <main class="main-col">
+        <div class="row g-4">
+          <!-- Cột Trái -->
+          <div class="col-xl-6 col-lg-6 d-flex flex-column gap-4">
+            <!-- 1. Cấu hình thiết bị -->
+            <div class="panel">
+              <h5 class="mb-3"><i class="bi bi-cpu"></i> Cấu hình thiết bị (Hardware)</h5>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label">Tần số lấy mẫu (Sample Rate)</label>
+                  <select class="form-select">
+                    <option value="50">50 Hz</option>
+                    <option value="100" selected>100 Hz (Khuyên dùng)</option>
+                    <option value="200">200 Hz</option>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Độ nhạy cảm biến (Sensitivity)</label>
+                  <select class="form-select">
+                    <option value="low">Thấp</option>
+                    <option value="normal" selected>Bình thường</option>
+                    <option value="high">Cao</option>
+                  </select>
+                </div>
+                <div class="col-md-12 mt-2">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="batteryAlert" checked>
+                    <label class="form-check-label" for="batteryAlert">Bật cảnh báo Pin yếu (dưới 20%)</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. Cảnh báo thông minh -->
+            <div class="panel">
+              <h5 class="mb-3"><i class="bi bi-bell"></i> Cảnh báo thông minh</h5>
+              <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox" id="aiAlertSound" checked>
+                <label class="form-check-label" for="aiAlertSound">Phát âm thanh cảnh báo khi AI phát hiện góc gập bất
+                  thường</label>
+              </div>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="aiAlertPopup" checked>
+                <label class="form-check-label" for="aiAlertPopup">Hiển thị Popup nhắc nhở người bệnh trên màn
+                  hình</label>
+              </div>
+            </div>
+
+            <!-- 3. Hiển thị -->
+            <div class="panel">
+              <h5 class="mb-3"><i class="bi bi-display"></i> Hiển thị</h5>
+              <label class="form-label" for="appScaleSelect">Tỷ lệ giao diện (Zoom / Scale)</label>
+              <select class="form-select" id="appScaleSelect">
+                <option value="80">80%</option>
+                <option value="90">90%</option>
+                <option value="100">100% (Mặc định)</option>
+                <option value="110">110%</option>
+                <option value="125">125%</option>
+                <option value="150">150%</option>
+              </select>
+              <div class="small text-muted mt-2">
+                Chọn tỷ lệ phù hợp với màn hình. Cài đặt này sẽ áp dụng cho toàn bộ ứng dụng.
+              </div>
+            </div>
+
+            <!-- 4. Thông tin hệ thống -->
+            <div class="panel">
+              <h5 class="mb-3"><i class="bi bi-info-circle"></i> Thông tin hệ thống</h5>
+              <ul class="list-group list-group-flush mb-0">
+                <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                  Phiên bản phần mềm
+                  <span class="badge bg-secondary rounded-pill">v1.2.0 (Stable)</span>
+                </li>
+                <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                  Phiên bản Firmware IMU
+                  <span class="badge bg-secondary rounded-pill">v2.1.5</span>
+                </li>
+                <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                  Kiểm tra cập nhật
+                  <button class="btn btn-sm btn-outline-primary">Kiểm tra ngay</button>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Cột Phải -->
+          <div class="col-xl-6 col-lg-6 d-flex flex-column gap-4">
+            <!-- 4. Sao lưu & Phục hồi -->
+            <div class="panel">
+              <h5 class="mb-3"><i class="bi bi-cloud-arrow-up"></i> Sao lưu & Phục hồi</h5>
+              <div class="d-flex gap-2 mb-3">
+                <button class="btn btn-outline-secondary w-100"><i class="bi bi-file-earmark-excel"></i> Xuất
+                  Excel</button>
+                <button class="btn btn-outline-danger w-100"><i class="bi bi-file-earmark-pdf"></i> Báo cáo PDF</button>
+              </div>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="cloudSync" checked>
+                <label class="form-check-label" for="cloudSync">Tự động đồng bộ lên Cloud (Máy chủ phòng khám)</label>
+              </div>
+            </div>
+
+            <!-- 5. Hỗ trợ khách hàng -->
+            <div class="panel">
+              <h5 class="mb-3"><i class="bi bi-headset"></i> Hỗ trợ khách hàng</h5>
+              <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                  <p class="mb-1 fw-bold text-secondary">Email hỗ trợ</p>
+                  <p>namthanh5555@gmail.com</p>
+                </div>
+                <div class="col-md-6">
+                  <p class="mb-1 fw-bold text-secondary">Hotline</p>
+                  <p>0384507482</p>
+                </div>
+                <div class="col-md-12">
+                  <p class="mb-1 fw-bold text-secondary">Trung tâm bảo hành</p>
+                  <p>Số 1 Đại Cầu Việt, Bách Khoa, Hai Bà Trưng, Hà Nội</p>
+                </div>
+              </div>
+              <button class="btn btn-primary w-100"><i class="bi bi-envelope"></i> Gửi yêu cầu hỗ trợ</button>
+            </div>
+
+            <!-- 6. Tài khoản (Đăng xuất) -->
+            <div class="panel">
+              <h5 class="mb-3"><i class="bi bi-person-circle"></i> Tài khoản</h5>
+              <p class="small text-muted mb-3">
+                <span data-i18n="settings.logout_text">Đăng xuất khỏi tài khoản</span>
+                <strong>{{username}}</strong>
+                <span data-i18n="settings.logout_suffix">hiện tại.</span>
+              </p>
+              <a href="/logout" class="btn btn-outline-danger w-100"><i class="bi bi-box-arrow-right"></i> Đăng xuất hệ
+                thống</a>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    // ===================== I18N TABLE =====================
+    const I18N = {
+      vi: {
+        "settings.page_title": "Cài đặt – IMU Dashboard",
+        "nav.hello": "Xin chào,",
+        "menu.title": "MENU",
+        "menu.home": "Trang chủ",
+        "menu.calib": "Hiệu chuẩn",
+        "menu.patinfo": "Thông tin bệnh nhân",
+        "menu.review": "Xem lại",
+        "menu.records": "Bệnh án",
+        "menu.charts": "Biểu đồ",
+        "menu.settings": "Cài đặt",
+
+        "settings.title": "Cài đặt hệ thống",
+        "settings.language": "Ngôn ngữ hiển thị",
+        "settings.lang_vi": "Tiếng Việt",
+        "settings.lang_en": "English",
+        "settings.btn_save": "Lưu cài đặt",
+        "settings.saved": "Đã lưu!",
+        "settings.account_title": "Tài khoản",
+        "settings.logout_text": "Đăng xuất khỏi tài khoản",
+        "settings.logout_suffix": "hiện tại.",
+        "settings.btn_logout": "Đăng xuất"
+      },
+
+      en: {
+        "settings.page_title": "Settings – IMU Dashboard",
+        "nav.hello": "Hello,",
+        "menu.title": "MENU",
+        "menu.home": "Home",
+        "menu.calib": "Calibration",
+        "menu.patinfo": "Patient information",
+        "menu.review": "Review",
+        "menu.records": "Records",
+        "menu.charts": "Charts",
+        "menu.settings": "Settings",
+
+        "settings.title": "System settings",
+        "settings.language": "Display language",
+        "settings.lang_vi": "Vietnamese",
+        "settings.lang_en": "English",
+        "settings.btn_save": "Save settings",
+        "settings.saved": "Saved!",
+        "settings.account_title": "Account",
+        "settings.logout_text": "Log out from account",
+        "settings.logout_suffix": "now.",
+        "settings.btn_logout": "Log out"
+      }
+    };
+
+    // ===================== APPLY LANGUAGE =====================
+    function applyLanguage(lang) {
+      const dict = I18N[lang] || I18N.vi;
+
+      document.querySelectorAll("[data-i18n]").forEach(el => {
+        const k = el.getAttribute("data-i18n");
+        if (dict[k]) el.textContent = dict[k];
+      });
+
+      // Placeholder support (nếu cần)
+      document.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
+        const k = el.getAttribute("data-i18n-placeholder");
+        if (dict[k]) el.placeholder = dict[k];
+      });
+
+      // Update title
+      const titleEl = document.querySelector("title[data-i18n]");
+      if (titleEl) {
+        const k = titleEl.getAttribute("data-i18n");
+        if (dict[k]) titleEl.textContent = dict[k];
+      }
+    }
+
+    // ===================== LOAD & SAVE SETTINGS =====================
+    function loadSettings() {
+      const scaleSelect = document.getElementById("appScaleSelect");
+      if (scaleSelect) {
+        scaleSelect.value = localStorage.getItem("app_scale_percent") || "100";
+      }
+    }
+
+    function saveSettings() {
+      const scaleSelect = document.getElementById("appScaleSelect");
+      if (scaleSelect) {
+        localStorage.setItem("app_scale_percent", scaleSelect.value);
+        window.dispatchEvent(new Event("app-scale-changed"));
+      }
+    }
+
+    // ===================== EVENT BINDING =====================
+    const scaleSelect = document.getElementById("appScaleSelect");
+    if (scaleSelect) scaleSelect.addEventListener("change", saveSettings);
+
+    const btnSaveSettings = document.getElementById("btnSaveSettings");
+    if (btnSaveSettings) btnSaveSettings.onclick = saveSettings;
+
+    const btnToggleSB = document.getElementById("btnToggleSB");
+    if (btnToggleSB) {
+      btnToggleSB.onclick = () => {
+        document.body.classList.toggle("sb-collapsed");
+      };
+    }
+
+    document.addEventListener("DOMContentLoaded", loadSettings);
+
+  </script>
+{% include 'desktop_keepalive.html' %}
+</body>
+
+</html>
