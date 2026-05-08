@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-import os
 import glob
-from typing import List
-from dotenv import load_dotenv
+import os
 from multiprocessing import Pool
+from typing import List
+
+from dotenv import load_dotenv
 from tqdm import tqdm
 
 from langchain.document_loaders import (
@@ -27,12 +28,14 @@ from langchain.docstore.document import Document
 from constants import CHROMA_SETTINGS
 
 
-load_dotenv()
+from constants import BASE_DIR, CHROMA_SETTINGS
+
+load_dotenv(BASE_DIR / ".env")
 
 
-# Load environment variables
-persist_directory = os.environ.get('PERSIST_DIRECTORY')
-source_directory = os.environ.get('SOURCE_DIRECTORY', 'source_documents')
+# Load environment variables
+persist_directory = os.environ.get('PERSIST_DIRECTORY', str(BASE_DIR / 'db'))
+source_directory = os.environ.get('SOURCE_DIRECTORY', str(BASE_DIR / 'source_documents'))
 embeddings_model_name = os.environ.get('EMBEDDINGS_MODEL_NAME')
 chunk_size = 500
 chunk_overlap = 50

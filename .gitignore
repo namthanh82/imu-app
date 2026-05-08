@@ -1,15 +1,31 @@
+.env
+*.env
+
 .venv/
 .venv_test/
+venv/
+env/
 __pycache__/
 *.py[cod]
 *.pyd
 *.so
 *.log
 
+.cursor/
+.vscode/
+.idea/
+
+build/
+dist/
+*.exe
+
 /db/
 /exports/
 records.json
 vas.json
+
+# Runtime data created on deploy/build
+.imu-web-data/
 
 /models/
 

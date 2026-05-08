@@ -2,6 +2,7 @@
 # webgiaodien.py
 import os, json, time, math, io, csv, threading
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 from uuid import uuid4
 from collections import defaultdict, deque
 
@@ -15,6 +16,13 @@ from flask_socketio import SocketIO, emit
 #   GLOBALS / CONSTANTS
 # =========================
 VN_TZ = timezone(timedelta(hours=7))
+BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = Path(os.environ.get("IMU_WEB_DATA_DIR", str(Path.home() / ".imu-web-min"))).expanduser()
+if not DATA_DIR.is_absolute():
+    DATA_DIR = BASE_DIR / DATA_DIR
+if getattr(os, "name", "") == "nt" and len(str(DATA_DIR)) > 1 and str(DATA_DIR)[1] == ":":
+    DATA_DIR = Path(str(DATA_DIR))
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 DATA_LOCK = threading.Lock()
 MAX_LOCK  = threading.Lock()
@@ -34,13 +42,13 @@ EMG_ALPHA = 0.1
 LAST_EMG = {"emg": None}        # giữ EMG gần nhất (object {v,t_ms,sender_id})
 
 VAS_STORE = []
-VAS_FILE  = "vas.json"
+VAS_FILE  = str(DATA_DIR / "vas.json")
 
 RECORD_STORE = []
-RECORD_FILE  = "records.json"
+RECORD_FILE  = str(DATA_DIR / "records.json")
 
-PATIENTS_FILE = "sample.json"
-EXPORT_DIR = "exports"
+PATIENTS_FILE = str(DATA_DIR / "sample.json")
+EXPORT_DIR = str(DATA_DIR / "exports")
 os.makedirs(EXPORT_DIR, exist_ok=True)
 
 # ========== SERIAL ==========

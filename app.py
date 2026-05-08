@@ -1,6 +1,5 @@
 import importlib.util
 import os
-import time
 import webbrowser
 from pathlib import Path
 from threading import Lock, Timer
