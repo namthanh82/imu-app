@@ -18,6 +18,7 @@ build/
 
 # ── Virtual Environments ──────────────────────────────────
 .venv*/
+.buildvenv/
 venv*/
 env/
 ENV/

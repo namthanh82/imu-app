@@ -1,15 +1,11 @@
 from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader
-from langchain_community.vectorstores import FAISS
-from langchain_community.vectorstores.utils import DistanceStrategy
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 
-from langchain_classic.memory import ConversationBufferMemory
-from langchain_classic.chains import ConversationalRetrievalChain
-
 from dotenv import load_dotenv
 
+import math
 import os
 import sys
 
@@ -26,7 +22,17 @@ load_dotenv(os.path.join(PROJECT_DIR, ".env"), override=False)
 load_dotenv(os.path.join(BASE_DIR, ".env"), override=False)
 
 DATA_DIR = resource_path(os.path.join("imurtrack_ai", "data")) if hasattr(sys, "_MEIPASS") else resource_path("data")
-_CONV_CHAIN = None
+_CHATBOT = None
+_CHAT_HISTORY = []
+
+
+def _cosine_similarity(left, right):
+    dot = sum(a * b for a, b in zip(left, right))
+    left_norm = math.sqrt(sum(a * a for a in left))
+    right_norm = math.sqrt(sum(b * b for b in right))
+    if not left_norm or not right_norm:
+        return 0.0
+    return dot / (left_norm * right_norm)
 
 # ── Prompt ────────────────────────────────────────────────
 template = """
@@ -140,40 +146,42 @@ def _build_chain():
     splits = text_splitter.split_documents(docs)
 
     embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
-    vectorstore = FAISS.from_documents(
-        documents=splits,
-        embedding=embeddings,
-        distance_strategy=DistanceStrategy.COSINE,
-    )
-    retriever = vectorstore.as_retriever(
-        search_type="similarity_score_threshold",
-        search_kwargs={"k": 5, "score_threshold": 0.2},
-    )
+    split_texts = [doc.page_content for doc in splits]
+    split_vectors = embeddings.embed_documents(split_texts)
 
     llm = ChatOpenAI(
         model="gpt-4o-mini",
         temperature=0.0,
     )
-    memory = ConversationBufferMemory(
-        memory_key="chat_history",
-        return_messages=True,
-        output_key="answer",
-    )
-    return ConversationalRetrievalChain.from_llm(
-        llm=llm,
-        retriever=retriever,
-        memory=memory,
-        combine_docs_chain_kwargs={"prompt": prompt},
-        return_source_documents=False,
-    )
+    return split_texts, split_vectors, embeddings, llm
 
 
 def get_answer(question):
-    global _CONV_CHAIN
-    if _CONV_CHAIN is None:
-        _CONV_CHAIN = _build_chain()
-    result = _CONV_CHAIN.invoke({"question": question})
-    return result["answer"]
+    global _CHATBOT
+    if _CHATBOT is None:
+        _CHATBOT = _build_chain()
+
+    split_texts, split_vectors, embeddings, llm = _CHATBOT
+    question_vector = embeddings.embed_query(question)
+    ranked_context = sorted(
+        (
+            (_cosine_similarity(question_vector, split_vector), text)
+            for text, split_vector in zip(split_texts, split_vectors)
+        ),
+        reverse=True,
+    )
+    context = "\n\n".join(text for score, text in ranked_context[:5] if score >= 0.2)
+    chat_history = "\n".join(_CHAT_HISTORY[-8:])
+
+    messages = prompt.invoke({
+        "context": context,
+        "chat_history": chat_history,
+        "question": question,
+    })
+    answer = llm.invoke(messages).content
+
+    _CHAT_HISTORY.extend([f"User: {question}", f"Assistant: {answer}"])
+    return answer
 
 # ── Main Loop ─────────────────────────────────────────────
 if __name__ == "__main__":
