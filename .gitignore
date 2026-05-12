@@ -25,7 +25,10 @@ ENV/
 
 # ── IDE / Editor ──────────────────────────────────────────
 .vscode/
-.cursor/
+# Cursor: ignore local/editor junk but keep shared agent rules in .cursor/rules/
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
 .idea/
 *.swp
 *.swo

@@ -1,0 +1,24 @@
+---
+description: Default GitHub flow — push to imu-app (remote target) and merge into main
+alwaysApply: true
+---
+
+# GitHub — `imu-app` là remote chính
+
+- **`target`** → `https://github.com/namthanh82/imu-app.git` (app / merge vào **main** ở đây).
+- **`origin`** → `https://github.com/namthanh82/imu-web-min.git` (repo nhánh; không coi là đích merge mặc định trừ khi user nói rõ).
+
+## Mặc định sau khi có commit để “đưa lên GitHub”
+
+1. Không commit `.env`, `**/secret`, model/binary cồng kềnh (vd `.bin` lớn) trừ khi user yêu cầu và đã có LFS/plan.
+2. Đồng bộ `main` với app repo:  
+   `git checkout main && git pull target main`
+3. Gộp nhánh làm việc:  
+   `git merge <feature-branch>`  
+   (giải conflict nếu có.)
+4. Đẩy **`main`** lên **`target`**:  
+   `git push target main`
+5. Giữ nhánh feature trên `target` nếu cần lịch sử:  
+   `git push target <feature-branch>`
+
+Nếu user thích PR thay vì merge local: mở PR vào **`main`** của repo **`imu-app`**, không phải `imu-web-min`.

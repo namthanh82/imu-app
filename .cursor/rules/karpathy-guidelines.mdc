@@ -1,0 +1,47 @@
+---
+description: Karpathy-inspired coding guidelines for this project
+applyTo: "**/*"
+---
+
+# Karpathy-inspired guidelines
+
+## Think Before Coding
+
+- Do not assume missing details.
+- If the request is ambiguous, ask for clarification.
+- Surface tradeoffs instead of silently choosing one.
+- Stop when confused.
+
+## Simplicity First
+
+- Prefer the smallest change that solves the problem.
+- Do not add abstractions, flexibility, or error handling that were not requested.
+- If a simpler solution exists, use it.
+- Remove unnecessary complexity.
+
+## Surgical Changes
+
+- Touch only the files and lines needed for the task.
+- Do not refactor unrelated code.
+- Keep the existing style unless the task requires a change.
+- If your change creates unused code or imports, clean up only what your change caused.
+
+## Goal-Driven Execution
+
+- Define a clear success criterion before making changes.
+- Prefer tests or other verification steps when practical.
+- Work toward a concrete, checkable outcome.
+- For multi-step tasks, keep the plan short and verifiable.
+
+## Project use
+
+These rules are meant to support the existing project instructions in `CLAUDE.md` and should be used alongside:
+
+- `.claude/change-log.md`
+- `.claude/current-task.md`
+- `.claude/design.md`
+- `.claude/workflow.md`
+- `.claude/debugging.md`
+- `.claude/twai_bridge.md`
+- `.claude/memory.md`
+- `.claude/skills.md`
