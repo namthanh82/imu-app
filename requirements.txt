@@ -22,7 +22,5 @@ gunicorn==22.0.0
 openai
 langchain-community
 langchain-openai
-langchain-classic
 langchain-text-splitters
-faiss-cpu
 pypdf

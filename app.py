@@ -29,7 +29,18 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 
-load_dotenv(resource_path('.env'))
+def load_app_env():
+    """Load secrets for Flask + /api/analyze. Matches chatbot.py: root .env and imurtrack_ai/.env."""
+    load_dotenv(resource_path(".env"), override=False)
+    load_dotenv(resource_path(os.path.join("imurtrack_ai", ".env")), override=False)
+    # Allow OPENAI_API_KEY (etc.) in .env next to ReTrack.exe without rebuilding
+    if getattr(sys, "frozen", False):
+        exe_env = os.path.join(os.path.dirname(sys.executable), ".env")
+        if os.path.isfile(exe_env):
+            load_dotenv(exe_env, override=True)
+
+
+load_app_env()
 
 app = Flask(__name__, static_folder=resource_path('static'), template_folder=resource_path('templates'))
 app.secret_key = os.environ.get("SECRET_KEY", "CHANGE_ME_IN_PRODUCTION")
