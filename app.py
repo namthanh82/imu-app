@@ -178,7 +178,22 @@ def logout():
     logout_user()
     return redirect(url_for("login"))
 
+@app.route("/register", methods=["POST"])
+def register():
+    username = request.form.get("reg_username", "").strip()
+    password = request.form.get("reg_password", "")
+    password2 = request.form.get("reg_password2", "")
 
+    if not username or not password:
+        return render_template("login.html", error_message="Vui lòng nhập đầy đủ tài khoản và mật khẩu.")
+    if password != password2:
+        return render_template("login.html", error_message="Mật khẩu nhập lại không khớp.")
+    if username in USERS:
+        return render_template("login.html", error_message="Tài khoản này đã tồn tại.")
+
+    USERS[username] = generate_password_hash(password)
+    flash("Đăng ký tài khoản thành công. Vui lòng đăng nhập.", "success")
+    return redirect(url_for("login"))
 @app.route("/")
 @login_required
 def dashboard():
