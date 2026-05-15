@@ -288,6 +288,15 @@ body::after{
       <div class="login-subtitle">Nền tảng theo dõi & hỗ trợ phục hồi vận động KomLab</div>
 
       <div class="divider"></div>
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} py-2 mb-3" role="alert">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+      {% endwith %}
 
       <!-- =================== FORM ĐĂNG NHẬP =================== -->
       <form id="loginForm" method="post" action="/login">
@@ -365,7 +374,10 @@ body::after{
   const registerForm = document.getElementById('registerForm');
   const btnShowReg   = document.getElementById('btnShowRegister');
   const btnShowLogin = document.getElementById('btnShowLogin');
-
+  if (window.location.pathname === '/register') {
+      loginForm.style.display = 'none';
+      registerForm.style.display = 'block';
+  }
   // Chuyển qua form đăng ký
   btnShowReg.addEventListener('click', () => {
       loginForm.style.display = 'none';
